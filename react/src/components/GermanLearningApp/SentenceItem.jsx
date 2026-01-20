@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Trash2, Edit2, Check, X } from 'lucide-react';
 
 export default function SentenceItem({
   sentence,
@@ -10,7 +10,6 @@ export default function SentenceItem({
   setEditArabic,
   saveEdit,
   setEditingId,
-  toggleFavorite,
   deleteSentence,
 }) {
   const isEditing = editingId === sentence._id;
@@ -42,21 +41,9 @@ export default function SentenceItem({
         </div>
       ) : (
         <>
-          <div className="sentence-header">
-            <div className="sentence-content">
-              <p className="german-text">{sentence.german}</p>
-              <p className="arabic-text">{sentence.arabic}</p>
-            </div>
-            <button
-              onClick={() => toggleFavorite(sentence)}
-              className="favorite-button"
-            >
-              <Star
-                size={24}
-                fill={sentence.favorite ? '#fbbf24' : 'none'}
-                color="#fbbf24"
-              />
-            </button>
+          <div className="sentence-content">
+            <p className="german-text">{sentence.german}</p>
+            <p className="arabic-text">{sentence.arabic}</p>
           </div>
 
           <div className="sentence-footer">

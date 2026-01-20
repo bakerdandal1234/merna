@@ -6,7 +6,7 @@ import FlashcardView from './GermanLearningApp/Flashcard/FlashcardViewNew';
 import StatsMinimal from './Statistics/StatsMinimal';
 import './GermanLearningApp/styles.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://merna-ugyu.onrender.com/api';
 
 export default function GermanLearningApp() {
   const [sentences, setSentences] = useState([]);
@@ -16,7 +16,6 @@ export default function GermanLearningApp() {
   const [editGerman, setEditGerman] = useState('');
   const [editArabic, setEditArabic] = useState('');
   const [flashcardMode, setFlashcardMode] = useState(false);
-  const [filterFavorites, setFilterFavorites] = useState(false);
 
   useEffect(() => {
     fetchSentences();
@@ -94,10 +93,6 @@ export default function GermanLearningApp() {
     }
   };
 
-  const toggleFavorite = (sentence) => {
-    updateSentence(sentence._id, { favorite: !sentence.favorite });
-  };
-
   const saveEdit = () => {
     if (!editGerman.trim() || !editArabic.trim()) {
       alert('يرجى إدخال الجملة والترجمة');
@@ -109,7 +104,7 @@ export default function GermanLearningApp() {
 
   // Props for the sentence list and its items
   const sentenceListProps = {
-    sentences: sentences.filter(s => filterFavorites ? s.favorite : true),
+    sentences: sentences,
     editingId,
     editGerman,
     setEditGerman,
@@ -117,7 +112,6 @@ export default function GermanLearningApp() {
     setEditArabic,
     saveEdit,
     setEditingId,
-    toggleFavorite,
     deleteSentence,
   };
 
@@ -140,14 +134,11 @@ export default function GermanLearningApp() {
         <FilterButtons
           flashcardMode={flashcardMode}
           setFlashcardMode={setFlashcardMode}
-          filterFavorites={filterFavorites}
-          setFilterFavorites={setFilterFavorites}
         />
 
         {flashcardMode ? (
           <FlashcardView
             sentences={sentences}
-            filterFavorites={filterFavorites}
             onUpdate={fetchSentences}
           />
         ) : (

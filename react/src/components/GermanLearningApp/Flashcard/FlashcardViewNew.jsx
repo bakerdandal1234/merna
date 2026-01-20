@@ -4,7 +4,7 @@ import './FlashcardNew.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-export default function FlashcardView({ sentences, filterFavorites, onUpdate, showOnlyDue = true }) {
+export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true }) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showArabic, setShowArabic] = useState(false);
   const [animation, setAnimation] = useState('');
@@ -20,16 +20,12 @@ export default function FlashcardView({ sentences, filterFavorites, onUpdate, sh
   const filteredSentences = React.useMemo(() => {
     let filtered = sentences;
     
-    if (filterFavorites) {
-      filtered = filtered.filter(s => s.favorite);
-    }
-    
     if (showOnlyDue) {
       filtered = getDueSentences(filtered);
     }
     
     return filtered;
-  }, [sentences, filterFavorites, showOnlyDue]);
+  }, [sentences, showOnlyDue]);
 
   useEffect(() => {
     setCurrentCardIndex(0);
@@ -37,7 +33,7 @@ export default function FlashcardView({ sentences, filterFavorites, onUpdate, sh
     setIsFlipped(false);
     setAnimation('');
     setCorrectStreak(0);
-  }, [filterFavorites, sentences]);
+  }, [sentences]);
 
   useEffect(() => {
     if (currentCardIndex >= filteredSentences.length && filteredSentences.length > 0) {

@@ -89,11 +89,6 @@ const sentenceSchema = new mongoose.Schema({
   }],
   
   // ===== حقول إضافية =====
-  favorite: {
-    type: Boolean,
-    default: false
-  },
-  
   lastReviewed: {
     type: Date,
     default: null
@@ -366,13 +361,12 @@ app.post('/api/sentences/reset', async (req, res) => {
 // PUT - تعديل الجملة
 app.put('/api/sentences/:id', async (req, res) => {
   try {
-    const { german, arabic, favorite } = req.body;
+    const { german, arabic } = req.body;
 
     const updateData = {};
     
     if (german) updateData.german = german;
     if (arabic) updateData.arabic = arabic;
-    if (favorite !== undefined) updateData.favorite = favorite;
 
     const updatedSentence = await Sentence.findByIdAndUpdate(
       req.params.id,

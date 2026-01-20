@@ -3,8 +3,6 @@ import React from 'react';
 export default function FilterButtons({
   flashcardMode,
   setFlashcardMode,
-  filterFavorites,
-  setFilterFavorites,
 }) {
   return (
     <div className="button-group">
@@ -13,13 +11,6 @@ export default function FilterButtons({
         className={`button ${flashcardMode ? 'button-active' : 'button-inactive'}`}
       >
         {flashcardMode ? 'عرض القائمة' : 'وضع البطاقات التعليمية'}
-      </button>
-      
-      <button
-        onClick={() => setFilterFavorites(!filterFavorites)}
-        className={`button ${filterFavorites ? 'button-favorite' : 'button-inactive'}`}
-      >
-        {filterFavorites ? 'عرض الكل' : 'المفضلة فقط'}
       </button>
     </div>
   );
