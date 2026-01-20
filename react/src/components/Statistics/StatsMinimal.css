@@ -1,0 +1,84 @@
+/* إحصائيات مبسطة - Minimal Stats */
+.stats-minimal {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.stat-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* بطاقة الجمل المستحقة */
+.stat-card.due {
+  border-right: 4px solid #f59e0b;
+}
+
+.stat-card.due .stat-icon {
+  color: #f59e0b;
+  background: #fef3c7;
+  padding: 0.75rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* بطاقة الـ Streak */
+.stat-card.streak {
+  border-right: 4px solid #ec4899;
+}
+
+.stat-card.streak .stat-icon {
+  color: #ec4899;
+  background: #fce7f3;
+  padding: 0.75rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .stats-minimal {
+    flex-direction: column;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+  }
+}

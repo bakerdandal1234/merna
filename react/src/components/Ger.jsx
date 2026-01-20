@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import AddSentenceForm from './GermanLearningApp/AddSentenceForm';
 import FilterButtons from './GermanLearningApp/FilterButtons';
 import SentencesList from './GermanLearningApp/SentencesList';
-import FlashcardView from './GermanLearningApp/Flashcard/FlashcardView';
+import FlashcardView from './GermanLearningApp/Flashcard/FlashcardViewNew';
+import StatsMinimal from './Statistics/StatsMinimal';
 import './GermanLearningApp/styles.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -124,6 +125,9 @@ export default function GermanLearningApp() {
     <div className="container">
       <div className="max-width">
         <h1 className="title">تعلم الألمانية 🇩🇪</h1>
+        
+        {/* إحصائيات مبسطة دائمة الظهور */}
+        <StatsMinimal sentences={sentences} />
 
         <AddSentenceForm
           newGerman={newGerman}
@@ -144,6 +148,7 @@ export default function GermanLearningApp() {
           <FlashcardView
             sentences={sentences}
             filterFavorites={filterFavorites}
+            onUpdate={fetchSentences}
           />
         ) : (
           <SentencesList {...sentenceListProps} />
