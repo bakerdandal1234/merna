@@ -18,7 +18,7 @@ app.use(helmet()); // حماية HTTP headers
 
 // CORS Configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://baker12.netlify.app',
+  origin: '*',
   credentials: true // للسماح بإرسال cookies
 }));
 
