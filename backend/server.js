@@ -18,9 +18,14 @@ app.use(helmet()); // حماية HTTP headers
 
 // CORS Configuration
 app.use(cors({
-  origin: '*',
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173', // إذا كنت تستخدم Vite
+    'https://baker12.netlify.app'  // موقعك على Netlify
+  ],
   credentials: true // للسماح بإرسال cookies
 }));
+
 
 // Body Parser
 app.use(express.json({ limit: '10kb' })); // حد أقصى 10kb للـ JSON
