@@ -6,7 +6,7 @@ import './Flashcard.css';
 import './CelebrationEffectsMinimal.css';
 import './MotivationalMessages.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://merna-ugyu.onrender.com/api';
 
 export default function FlashcardView({ sentences, filterFavorites, onUpdate, showOnlyDue = true }) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);

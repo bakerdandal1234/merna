@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getDueSentences, getLevelDetails, getMotivationalMessage } from '../../../utils/srsUtils';
 import './FlashcardNew.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://merna-ugyu.onrender.com/api';
 
 export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true }) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -251,7 +251,7 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
             }}
           >
             <span className="btn-emoji">❌</span>
-            <span className="btn-text">لم أعرفها</span>
+            <span className="btn-text">Again</span>
             <span className="btn-shortcut">0</span>
           </button>
           
@@ -263,7 +263,7 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
             }}
           >
             <span className="btn-emoji">😅</span>
-            <span className="btn-text">صعب</span>
+            <span className="btn-text">Hard</span>
             <span className="btn-shortcut">1</span>
           </button>
           
@@ -275,7 +275,7 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
             }}
           >
             <span className="btn-emoji">👍</span>
-            <span className="btn-text">جيد</span>
+            <span className="btn-text">Good</span>
             <span className="btn-shortcut">2</span>
           </button>
           
@@ -287,7 +287,7 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
             }}
           >
             <span className="btn-emoji">⭐</span>
-            <span className="btn-text">ممتاز</span>
+            <span className="btn-text">Excellent</span>
             <span className="btn-shortcut">3</span>
           </button>
         </div>
