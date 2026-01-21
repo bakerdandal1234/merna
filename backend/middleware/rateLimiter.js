@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // Rate limiter للتسجيل والدخول (لمنع Brute Force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 دقيقة
-  max: 100000, // 20 محاولات فقط
+  max: 200, // 20 محاولات فقط
   message: {
     success: false,
     message: 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة بعد 15 دقيقة'
