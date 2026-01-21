@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import Header from './Header';
 import AddSentenceForm from './GermanLearningApp/AddSentenceForm';
 import FilterButtons from './GermanLearningApp/FilterButtons';
 import SentencesList from './GermanLearningApp/SentencesList';
 import FlashcardView from './GermanLearningApp/Flashcard/FlashcardViewNew';
 import StatsMinimal from './Statistics/StatsMinimal';
+import api from '../services/api';
 import './GermanLearningApp/styles.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://merna-ugyu.onrender.com/api';
 
 export default function GermanLearningApp() {
   const [sentences, setSentences] = useState([]);
@@ -23,9 +23,8 @@ export default function GermanLearningApp() {
 
   const fetchSentences = async () => {
     try {
-      const response = await fetch(`${API_URL}/sentences`);
-      const data = await response.json();
-      setSentences(data);
+      const response = await api.get('/sentences');
+      setSentences(response.data);
     } catch (error) {
       console.error('خطأ في جلب البيانات:', error);
     }
@@ -38,40 +37,27 @@ export default function GermanLearningApp() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/sentences`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ german: newGerman, arabic: newArabic })
+      const response = await api.post('/sentences', { 
+        german: newGerman, 
+        arabic: newArabic 
       });
 
-      const data = await response.json();
-
-      if (response.status === 400 && data.exists) {
-        alert('الجملة موجودة مسبقًا');
-        return;
-      }
-
-      if (response.ok) {
-        setNewGerman('');
-        setNewArabic('');
-        fetchSentences();
-      }
+      setNewGerman('');
+      setNewArabic('');
+      fetchSentences();
     } catch (error) {
-      console.error('خطأ في إضافة الجملة:', error);
+      if (error.response?.status === 400 && error.response?.data?.exists) {
+        alert('الجملة موجودة مسبقًا');
+      } else {
+        console.error('خطأ في إضافة الجملة:', error);
+      }
     }
   };
 
   const updateSentence = async (id, updates) => {
     try {
-      const response = await fetch(`${API_URL}/sentences/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-
-      if (response.ok) {
-        fetchSentences();
-      }
+      await api.put(`/sentences/${id}`, updates);
+      fetchSentences();
     } catch (error) {
       console.error('خطأ في تحديث الجملة:', error);
     }
@@ -81,13 +67,8 @@ export default function GermanLearningApp() {
     if (!window.confirm('هل أنت متأكد من حذف هذه الجملة؟')) return;
 
     try {
-      const response = await fetch(`${API_URL}/sentences/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        fetchSentences();
-      }
+      await api.delete(`/sentences/${id}`);
+      fetchSentences();
     } catch (error) {
       console.error('خطأ في حذف الجملة:', error);
     }
@@ -116,9 +97,10 @@ export default function GermanLearningApp() {
   };
 
   return (
-    <div className="container">
-      <div className="max-width">
-        <h1 className="title">تعلم الألمانية 🇩🇪</h1>
+    <>
+      <Header />
+      <div className="container">
+        <div className="max-width">
         
         {/* إحصائيات مبسطة دائمة الظهور */}
         <StatsMinimal sentences={sentences} />
@@ -144,7 +126,8 @@ export default function GermanLearningApp() {
         ) : (
           <SentencesList {...sentenceListProps} />
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

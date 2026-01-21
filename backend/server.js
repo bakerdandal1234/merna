@@ -3,16 +3,35 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const { updateCardState, getLevelDetails, calculateSentenceStats } = require('./srsController');
 
 const app = express();
-console.log('ENV MONGODB_URI =', process.env.MONGODB_URI);
 
+// ============================================
 // Middleware
-app.use(cors());
-app.use(express.json());
+// ============================================
 
+// Security Middleware
+app.use(helmet()); // حماية HTTP headers
+
+// CORS Configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true // للسماح بإرسال cookies
+}));
+
+// Body Parser
+app.use(express.json({ limit: '10kb' })); // حد أقصى 10kb للـ JSON
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Cookie Parser
+app.use(cookieParser());
+
+// ============================================
 // MongoDB Connection
+// ============================================
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
@@ -23,13 +42,18 @@ mongoose
   });
 
 // ============================================
-// 📦 Sentence Schema مع حقول SM-2 الجديدة
+// 📦 Sentence Schema مع حقول SM-2 + userId
 // ============================================
 const sentenceSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  
   german: {
     type: String,
     required: true,
-    unique: true,
     trim: true
   },
   arabic: {
@@ -38,25 +62,25 @@ const sentenceSchema = new mongoose.Schema({
     trim: true
   },
   
-  // ===== حقول SM-2 الجديدة =====
+  // ===== حقول SM-2 =====
   interval: {
     type: Number,
-    default: 0  // عدد الأيام حتى المراجعة التالية
+    default: 0
   },
   
   easeFactor: {
     type: Number,
-    default: 2.5  // عامل السهولة (1.3 - 3.0)
+    default: 2.5
   },
   
   repetitions: {
     type: Number,
-    default: 0  // عدد التكرارات الناجحة المتتالية
+    default: 0
   },
   
   nextReview: {
     type: Date,
-    default: () => new Date()  // موعد المراجعة التالية
+    default: () => new Date()
   },
   
   reviewLevel: {
@@ -83,12 +107,17 @@ const sentenceSchema = new mongoose.Schema({
   
   reviewHistory: [{
     date: { type: Date, default: Date.now },
-    quality: { type: Number, min: 0, max: 3 }, // 0=خطأ، 1=صعب، 2=جيد، 3=ممتاز
+    quality: { type: Number, min: 0, max: 3 },
     intervalBefore: Number,
     intervalAfter: Number
   }],
   
   // ===== حقول إضافية =====
+  favorite: {
+    type: Boolean,
+    default: false
+  },
+  
   lastReviewed: {
     type: Date,
     default: null
@@ -100,46 +129,73 @@ const sentenceSchema = new mongoose.Schema({
   }
 });
 
+// Index للبحث السريع
+sentenceSchema.index({ userId: 1, createdAt: -1 });
+sentenceSchema.index({ userId: 1, nextReview: 1 });
+
 const Sentence = mongoose.model('Sentence', sentenceSchema);
+
+// ============================================
+// 🔐 Import Authentication Routes & Middleware
+// ============================================
+const authRoutes = require('./routes/authRoutes');
+const { protect } = require('./middleware/auth');
+const { generalLimiter } = require('./middleware/rateLimiter');
 
 // ============================================
 // 🌐 Routes
 // ============================================
 
+// Health Check
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Server is running! 🚀',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/', (req, res) => {
   res.send('🎓 مرحبًا بك في API لتعلم اللغة الألمانية مع نظام SM-2!');
 });
 
+// Rate Limiting عام للـ API
+// app.use('/api', generalLimiter);
+
+// Authentication Routes (Public)
+app.use('/api/auth', authRoutes);
+
 // ============================================
-// 📚 CRUD Operations
+// 📚 Sentence Routes (Protected)
 // ============================================
 
-// GET - جلب جميع الجمل
-app.get('/api/sentences', async (req, res) => {
+// GET - جلب جمل المستخدم فقط
+app.get('/api/sentences', protect, async (req, res) => {
   try {
-    const sentences = await Sentence.find().sort({ createdAt: -1 });
+    const sentences = await Sentence.find({ userId: req.user.id }).sort({ createdAt: -1 });
     
-    // إضافة تفاصيل المستوى لكل جملة
-    const sentencesWithLevels = sentences.map(s => {
+    const sentencesWithStats = sentences.map(s => {
       const stats = calculateSentenceStats(s);
-      return {
-        ...s.toObject(),
-        stats
-      };
+      return { ...s.toObject(), stats };
     });
     
-    res.json(sentencesWithLevels);
+    res.json(sentencesWithStats);
   } catch (error) {
     res.status(500).json({ message: 'خطأ في جلب الجمل', error: error.message });
   }
 });
 
 // POST - إضافة جملة جديدة
-app.post('/api/sentences', async (req, res) => {
+app.post('/api/sentences', protect, async (req, res) => {
   try {
     const { german, arabic } = req.body;
 
-    const existingSentence = await Sentence.findOne({ german });
+    // التحقق من وجود الجملة للمستخدم الحالي
+    const existingSentence = await Sentence.findOne({ 
+      userId: req.user.id, 
+      german 
+    });
+    
     if (existingSentence) {
       return res.status(400).json({
         message: 'الجملة موجودة مسبقًا',
@@ -148,6 +204,7 @@ app.post('/api/sentences', async (req, res) => {
     }
 
     const newSentence = new Sentence({
+      userId: req.user.id,
       german,
       arabic,
       interval: 0,
@@ -166,39 +223,31 @@ app.post('/api/sentences', async (req, res) => {
     const stats = calculateSentenceStats(newSentence);
     res.status(201).json({ ...newSentence.toObject(), stats });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: 'الجملة موجودة مسبقًا',
-        exists: true
-      });
-    }
     res.status(500).json({ message: 'خطأ في إضافة الجملة', error: error.message });
   }
 });
 
-// ============================================
-// 🎯 NEW: مراجعة الجملة بنظام SM-2
-// ============================================
-app.post('/api/sentences/:id/review', async (req, res) => {
+// POST - مراجعة الجملة بنظام SM-2
+app.post('/api/sentences/:id/review', protect, async (req, res) => {
   try {
-    const { quality } = req.body; // 0 = خطأ، 1 = صعب، 2 = جيد، 3 = ممتاز
+    const { quality } = req.body;
     
     if (quality < 0 || quality > 3) {
       return res.status(400).json({ message: 'التقييم يجب أن يكون بين 0 و 3' });
     }
 
-    const sentence = await Sentence.findById(req.params.id);
+    const sentence = await Sentence.findOne({ 
+      _id: req.params.id, 
+      userId: req.user.id 
+    });
+    
     if (!sentence) {
       return res.status(404).json({ message: 'الجملة غير موجودة' });
     }
 
-    // حفظ الفاصل القديم للتاريخ
     const intervalBefore = sentence.interval;
-
-    // حساب الحالة الجديدة بالخوارزمية
     const newState = updateCardState(sentence, quality);
 
-    // تحديث الإحصائيات
     sentence.interval = newState.interval;
     sentence.easeFactor = newState.easeFactor;
     sentence.repetitions = newState.repetitions;
@@ -213,7 +262,6 @@ app.post('/api/sentences/:id/review', async (req, res) => {
       sentence.wrongCount += 1;
     }
 
-    // إضافة السجل التاريخي
     sentence.reviewHistory.push({
       date: new Date(),
       quality: quality,
@@ -223,7 +271,6 @@ app.post('/api/sentences/:id/review', async (req, res) => {
 
     await sentence.save();
 
-    // إضافة الإحصائيات المحسوبة
     const stats = calculateSentenceStats(sentence);
     
     res.json({
@@ -240,14 +287,13 @@ app.post('/api/sentences/:id/review', async (req, res) => {
   }
 });
 
-// ============================================
-// 📊 الجمل المستحقة للمراجعة
-// ============================================
-app.get('/api/sentences/due', async (req, res) => {
+// GET - الجمل المستحقة للمراجعة
+app.get('/api/sentences/due', protect, async (req, res) => {
   try {
     const now = new Date();
     
     const dueSentences = await Sentence.find({
+      userId: req.user.id,
       nextReview: { $lte: now }
     }).sort({ nextReview: 1 });
     
@@ -265,15 +311,13 @@ app.get('/api/sentences/due', async (req, res) => {
   }
 });
 
-// ============================================
-// 📈 الإحصائيات العامة
-// ============================================
-app.get('/api/stats', async (req, res) => {
+// GET - الإحصائيات
+app.get('/api/stats', protect, async (req, res) => {
   try {
-    const total = await Sentence.countDocuments();
+    const total = await Sentence.countDocuments({ userId: req.user.id });
     
-    // حساب عدد الجمل لكل مستوى
     const levelCounts = await Sentence.aggregate([
+      { $match: { userId: req.user._id } },
       {
         $group: {
           _id: '$reviewLevel',
@@ -298,19 +342,17 @@ app.get('/api/stats', async (req, res) => {
       }
     });
     
-    // حساب نسبة الإتقان
     stats.masteryPercentage = total > 0 
       ? (((stats.excellent + stats.mastered) / total) * 100).toFixed(1)
       : 0;
     
-    // الجمل المستحقة
     const now = new Date();
     stats.due = await Sentence.countDocuments({
+      userId: req.user.id,
       nextReview: { $lte: now }
     });
     
-    // إحصائيات إضافية
-    const allSentences = await Sentence.find();
+    const allSentences = await Sentence.find({ userId: req.user.id });
     const totalReviews = allSentences.reduce((sum, s) => sum + (s.reviewCount || 0), 0);
     const totalCorrect = allSentences.reduce((sum, s) => sum + (s.correctCount || 0), 0);
     
@@ -325,13 +367,11 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// ============================================
-// 🔄 إعادة تعيين البطاقات
-// ============================================
-app.post('/api/sentences/reset', async (req, res) => {
+// POST - إعادة تعيين البطاقات
+app.post('/api/sentences/reset', protect, async (req, res) => {
   try {
     await Sentence.updateMany(
-      {},
+      { userId: req.user.id },
       {
         $set: {
           interval: 0,
@@ -354,22 +394,19 @@ app.post('/api/sentences/reset', async (req, res) => {
   }
 });
 
-// ============================================
-// 🗑️ حذف وتعديل
-// ============================================
-
 // PUT - تعديل الجملة
-app.put('/api/sentences/:id', async (req, res) => {
+app.put('/api/sentences/:id', protect, async (req, res) => {
   try {
-    const { german, arabic } = req.body;
+    const { german, arabic, favorite } = req.body;
 
     const updateData = {};
     
     if (german) updateData.german = german;
     if (arabic) updateData.arabic = arabic;
+    if (favorite !== undefined) updateData.favorite = favorite;
 
-    const updatedSentence = await Sentence.findByIdAndUpdate(
-      req.params.id,
+    const updatedSentence = await Sentence.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
       updateData,
       { new: true, runValidators: true }
     );
@@ -381,20 +418,17 @@ app.put('/api/sentences/:id', async (req, res) => {
     const stats = calculateSentenceStats(updatedSentence);
     res.json({ ...updatedSentence.toObject(), stats });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: 'الجملة موجودة مسبقًا',
-        exists: true
-      });
-    }
     res.status(500).json({ message: 'خطأ في تعديل الجملة', error: error.message });
   }
 });
 
 // DELETE - حذف الجملة
-app.delete('/api/sentences/:id', async (req, res) => {
+app.delete('/api/sentences/:id', protect, async (req, res) => {
   try {
-    const deletedSentence = await Sentence.findByIdAndDelete(req.params.id);
+    const deletedSentence = await Sentence.findOneAndDelete({ 
+      _id: req.params.id, 
+      userId: req.user.id 
+    });
 
     if (!deletedSentence) {
       return res.status(404).json({ message: 'الجملة غير موجودة' });
@@ -407,13 +441,46 @@ app.delete('/api/sentences/:id', async (req, res) => {
 });
 
 // ============================================
+// 404 Handler
+// ============================================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
+});
+
+// ============================================
+// Global Error Handler
+// ============================================
+app.use((err, req, res, next) => {
+  console.error('Error:', err.stack);
+  
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || 'حدث خطأ في الخادم',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// ============================================
 // 🚀 Server
 // ============================================
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🧠 SM-2 Algorithm: Active`);
-  console.log(`🔗 API: http://localhost:${PORT}/api`);
-  console.log(`📊 Stats: http://localhost:${PORT}/api/stats`);
-  console.log(`📚 Due Cards: http://localhost:${PORT}/api/sentences/due`);
+  console.log(`
+  ╔════════════════════════════════════════╗
+  ║   🚀 Server Running on Port ${PORT}      ║
+  ║   🌍 Environment: ${process.env.NODE_ENV}          ║
+  ║   🔐 Authentication: Enabled           ║
+  ║   🧠 SM-2 Algorithm: Active            ║
+  ║   🔗 API: http://localhost:${PORT}/api    ║
+  ╚════════════════════════════════════════╝
+  `);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('❌ Unhandled Rejection:', err);
 });
