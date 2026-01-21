@@ -10,7 +10,9 @@ const sendEmail = async (options) => {
     port: 587,
     secure: false,
     auth: {
+      console.log('email_user',process.env.EMAIL_USER);
       user: process.env.EMAIL_USER,
+      console.log('email_password',process.env.EMAIL_PASSWORD);
       pass: process.env.EMAIL_PASSWORD
     },
   });
