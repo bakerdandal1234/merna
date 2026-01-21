@@ -17,14 +17,29 @@ const app = express();
 app.use(helmet()); // حماية HTTP headers
 
 // CORS Configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://baker12.netlify.app'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173', // إذا كنت تستخدم Vite
-    'https://baker12.netlify.app'  // موقعك على Netlify
-  ],
-  credentials: true // للسماح بإرسال cookies
+  origin: function (origin, callback) {
+    // السماح للطلبات بدون origin (Postman مثلاً)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.options('*', cors());
 
 
 // Body Parser
