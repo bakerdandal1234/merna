@@ -8,7 +8,7 @@ const cookieParser = require('cookie-parser');
 const { updateCardState, getLevelDetails, calculateSentenceStats } = require('./srsController');
 
 const app = express();
-
+app.set('trust proxy', 1);
 // ============================================
 // Middleware
 // ============================================
