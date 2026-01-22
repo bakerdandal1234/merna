@@ -16,15 +16,25 @@ export const AuthProvider = ({ children }) => {
   // التحقق من حالة المصادقة
   const checkAuth = async () => {
     try {
+      console.log('🔄 محاولة تجديد الجلسة...');
+      
       // محاولة الحصول على access token جديد من refresh token
       const { data } = await api.post('/auth/refresh-token');
-      setAccessToken(data.accessToken);
+      
+      if (data.success && data.accessToken) {
+        console.log('✅ تم تجديد Access Token');
+        setAccessToken(data.accessToken);
 
-      // جلب بيانات المستخدم
-      const userResponse = await api.get('/auth/me');
-      setUser(userResponse.data.user);
+        // جلب بيانات المستخدم
+        const userResponse = await api.get('/auth/me');
+        console.log('✅ تم جلب بيانات المستخدم:', userResponse.data.user.name);
+        setUser(userResponse.data.user);
+      } else {
+        throw new Error('Invalid token response');
+      }
     } catch (error) {
-      console.log('Not authenticated');
+      console.log('❌ فشل التحقق من المصادقة:', error.response?.data?.message || error.message);
+      clearAccessToken();
       setUser(null);
     } finally {
       setLoading(false);
