@@ -1,41 +1,119 @@
+// ============================================
+// sendEmail.js - Production Ready with Brevo
+// يدعم Brevo (الأساسي) و Gmail (احتياطي)
+// ============================================
+
 const nodemailer = require('nodemailer');
 
-const sendEmail = async (options) => {
-  console.log('EMAIL_USER:', process.env.EMAIL_USER);
-  console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '*****' : 'غير موجود');
-  // إنشاء transporter
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    },
-  });
+// ============================================
+// طريقة 1: Brevo (Sendinblue) SMTP
+// ============================================
+const brevoTransporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false, // true للـ 465, false للـ 587
+  auth: {
+    user: process.env.BREVO_SMTP_USER, // الإيميل الخاص بك في Brevo
+    pass: process.env.BREVO_SMTP_KEY   // SMTP Key من Brevo
+  },
+  tls: {
+    rejectUnauthorized: true
+  }
+});
 
-  // Email options
+// ============================================
+// طريقة 2: Gmail Fallback
+// ============================================
+const gmailTransporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: process.env.EMAIL_PORT || 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  },
+  connectionTimeout: 10000
+});
+
+// ============================================
+// إرسال عبر Brevo
+// ============================================
+const sendViaBrevo = async (options) => {
+  if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
+    throw new Error('Brevo not configured');
+  }
+
   const mailOptions = {
-    from: `Merna App <${process.env.EMAIL_FROM}>`,
+    from: `${process.env.EMAIL_FROM_NAME || 'Merna App'} <${process.env.BREVO_SMTP_USER}>`,
     to: options.email,
     subject: options.subject,
     html: options.html
   };
 
-  // إرسال الإيميل
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully:', info.messageId);
-    console.log('📬 To:', options.email);
-    console.log('📧 Subject:', options.subject);
-    return info;
-  } catch (error) {
-    console.error('❌ Email sending failed:', error);
-    throw error;
-  }
+  return await brevoTransporter.sendMail(mailOptions);
 };
 
-// Template للتحقق من الإيميل
+// ============================================
+// إرسال عبر Gmail
+// ============================================
+const sendViaGmail = async (options) => {
+  const mailOptions = {
+    from: `${process.env.EMAIL_FROM_NAME || 'Merna App'} <${process.env.EMAIL_USER}>`,
+    to: options.email,
+    subject: options.subject,
+    html: options.html
+  };
+
+  return await gmailTransporter.sendMail(mailOptions);
+};
+
+// ============================================
+// الدالة الرئيسية مع Fallback
+// ============================================
+const sendEmail = async (options) => {
+  let lastError;
+
+  // المحاولة 1: Brevo (إذا كان مُفعّل)
+  if (process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_KEY) {
+    try {
+      console.log('📧 Attempting to send via Brevo (Sendinblue)...');
+      const info = await sendViaBrevo(options);
+      console.log('✅ Email sent successfully via Brevo');
+      console.log('📬 To:', options.email);
+      console.log('📧 Subject:', options.subject);
+      console.log('🆔 Message ID:', info.messageId);
+      return info;
+    } catch (error) {
+      console.error('⚠️ Brevo failed:', error.message);
+      lastError = error;
+      // Continue to Gmail fallback
+    }
+  }
+
+  // المحاولة 2: Gmail (Fallback)
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+    try {
+      console.log('📧 Attempting to send via Gmail...');
+      const info = await sendViaGmail(options);
+      console.log('✅ Email sent successfully via Gmail');
+      console.log('📬 To:', options.email);
+      console.log('📧 Subject:', options.subject);
+      console.log('🆔 Message ID:', info.messageId);
+      return info;
+    } catch (error) {
+      console.error('❌ Gmail also failed:', error.message);
+      lastError = error;
+    }
+  }
+
+  // كل الطرق فشلت
+  console.error('❌ All email providers failed');
+  throw lastError || new Error('No email provider configured');
+};
+
+// ============================================
+// Templates (بدون تغيير)
+// ============================================
 const getVerificationEmailTemplate = (verificationUrl, name) => {
   return `
     <!DOCTYPE html>
@@ -78,7 +156,6 @@ const getVerificationEmailTemplate = (verificationUrl, name) => {
   `;
 };
 
-// Template لإعادة تعيين كلمة المرور
 const getResetPasswordEmailTemplate = (resetUrl, name) => {
   return `
     <!DOCTYPE html>
