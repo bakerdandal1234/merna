@@ -16,7 +16,7 @@ const sendEmail = async (options) => {
       'https://api.brevo.com/v3/smtp/email',
       {
         sender: {
-          name: process.env.EMAIL_FROM_NAME || 'Merna App',
+          name: process.env.EMAIL_FROM_NAME || 'Baker App',
           email: process.env.EMAIL_FROM_ADDRESS,
         },
         to: [
