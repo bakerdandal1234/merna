@@ -13,7 +13,7 @@ const brevoTransporter = nodemailer.createTransport({
   port: 465,
   secure: true, // true للـ 465, false للـ 587
   auth: {
-    user: process.env.BREVO_SMTP_USER, // الإيميل الخاص بك في Brevo
+    user: 'apikey', // الإيميل الخاص بك في Brevo
     pass: process.env.BREVO_SMTP_KEY   // SMTP Key من Brevo
   },
   tls: {
