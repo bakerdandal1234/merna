@@ -190,14 +190,26 @@ app.use('/api/auth', authRoutes);
 // 📚 Sentence Routes (Protected) - مع توحيد الاستجابات
 // ============================================
 
-// GET - جلب جمل المستخدم فقط
+// GET - جلب جميع الجمل (جمل المستخدم + جمل المستخدمين الآخرين)
 app.get('/api/sentences', protect, async (req, res) => {
   try {
-    const sentences = await Sentence.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    // التحقق من وجود المستخدم
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح. يرجى تسجيل الدخول'
+      });
+    }
+
+    // ✅ جلب جميع الجمل بدون تصفية userId
+    const sentences = await Sentence.find({}).sort({ createdAt: -1 });
     
+    // ✅ إضافة معلومة isOwner لكل جملة للتحكم في الصلاحيات من جانب الـ Frontend
     const sentencesWithStats = sentences.map(s => {
       const stats = calculateSentenceStats(s);
-      return { ...s.toObject(), stats };
+      // استخدام _id بدلاً من id للتوافق
+      const isOwner = s.userId && req.user._id && s.userId.toString() === req.user._id.toString();
+      return { ...s.toObject(), stats, isOwner };
     });
     
     res.json({
@@ -214,14 +226,54 @@ app.get('/api/sentences', protect, async (req, res) => {
   }
 });
 
+// GET - جلب جمل المستخدم فقط (optional - في حال احتجت فيلتر بالجمل الخاصة بك)
+app.get('/api/sentences/my-sentences', protect, async (req, res) => {
+  try {
+    // التحقق من وجود المستخدم
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح. يرجى تسجيل الدخول'
+      });
+    }
+
+    const sentences = await Sentence.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    
+    const sentencesWithStats = sentences.map(s => {
+      const stats = calculateSentenceStats(s);
+      return { ...s.toObject(), stats, isOwner: true };
+    });
+    
+    res.json({
+      success: true,
+      count: sentencesWithStats.length,
+      sentences: sentencesWithStats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب جملك',
+      error: error.message
+    });
+  }
+});
+
 // POST - إضافة جملة جديدة
 app.post('/api/sentences', protect, async (req, res) => {
   try {
     const { german, arabic } = req.body;
 
+    // التحقق من وجود المستخدم
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح. يرجى تسجيل الدخول'
+      });
+    }
+
     // التحقق من وجود الجملة للمستخدم الحالي
     const existingSentence = await Sentence.findOne({ 
-      userId: req.user.id, 
+      userId: req.user._id, 
       german 
     });
     
@@ -234,7 +286,7 @@ app.post('/api/sentences', protect, async (req, res) => {
     }
 
     const newSentence = new Sentence({
-      userId: req.user.id,
+      userId: req.user._id,
       german,
       arabic,
       interval: 0,
@@ -332,7 +384,7 @@ app.get('/api/sentences/due', protect, async (req, res) => {
     const now = new Date();
     
     const dueSentences = await Sentence.find({
-      userId: req.user.id,
+      userId: req.user._id,
       nextReview: { $lte: now }
     }).sort({ nextReview: 1 });
     
@@ -358,7 +410,7 @@ app.get('/api/sentences/due', protect, async (req, res) => {
 // GET - الإحصائيات
 app.get('/api/stats', protect, async (req, res) => {
   try {
-    const total = await Sentence.countDocuments({ userId: req.user.id });
+    const total = await Sentence.countDocuments({ userId: req.user._id });
     
     const levelCounts = await Sentence.aggregate([
       { $match: { userId: req.user._id } },
@@ -392,11 +444,11 @@ app.get('/api/stats', protect, async (req, res) => {
     
     const now = new Date();
     stats.due = await Sentence.countDocuments({
-      userId: req.user.id,
+      userId: req.user._id,
       nextReview: { $lte: now }
     });
     
-    const allSentences = await Sentence.find({ userId: req.user.id });
+    const allSentences = await Sentence.find({ userId: req.user._id });
     const totalReviews = allSentences.reduce((sum, s) => sum + (s.reviewCount || 0), 0);
     const totalCorrect = allSentences.reduce((sum, s) => sum + (s.correctCount || 0), 0);
     
@@ -422,7 +474,7 @@ app.get('/api/stats', protect, async (req, res) => {
 app.post('/api/sentences/reset', protect, async (req, res) => {
   try {
     await Sentence.updateMany(
-      { userId: req.user.id },
+      { userId: req.user._id },
       {
         $set: {
           interval: 0,

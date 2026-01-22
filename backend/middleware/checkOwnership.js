@@ -8,7 +8,7 @@ const checkSentenceOwnership = (Sentence) => {
   return async (req, res, next) => {
     try {
       const sentenceId = req.params.id;
-      const userId = req.user.id; // من protect middleware
+      const userId = req.user._id; // من protect middleware
 
       // التحقق من صحة الـ ID
       if (!mongoose.Types.ObjectId.isValid(sentenceId)) {
@@ -29,7 +29,7 @@ const checkSentenceOwnership = (Sentence) => {
       }
 
       // التحقق من الملكية
-      if (sentence.userId.toString() !== userId.toString()) {
+      if (!sentence.userId || !userId || sentence.userId.toString() !== userId.toString()) {
         return res.status(403).json({
           success: false,
           message: '🚫 غير مسموح! يمكنك فقط تعديل/حذف الجمل التي أضفتها أنت'
