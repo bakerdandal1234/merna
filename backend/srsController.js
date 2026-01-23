@@ -1,15 +1,17 @@
 // ============================================
-// 🧠 SM-2 Algorithm Controller (بدون Luxon)
+// SM-2 Algorithm Controller (Improved & Optimized)
 // ============================================
+const { SM2, REVIEW_LEVELS } = require('./config/constants');
 
-// دالة مساعدة لإضافة أيام لتاريخ
+// ============================================
+// Helper Functions
+// ============================================
 const addDays = (date, days) => {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 };
 
-// دالة مساعدة لإضافة دقائق لتاريخ
 const addMinutes = (date, minutes) => {
   const result = new Date(date);
   result.setMinutes(result.getMinutes() + minutes);
@@ -17,13 +19,17 @@ const addMinutes = (date, minutes) => {
 };
 
 // ============================================
-// 🎯 الخوارزمية الأساسية (SM-2 المُحسّن)
+// SM-2 Algorithm Core Implementation
 // ============================================
 const updateCardState = (sentence, quality, now = new Date()) => {
-  // القيم الافتراضية
-  const currentInterval = sentence.interval || 0;
-  const currentEase = sentence.easeFactor || 2.5;
-  const currentReps = sentence.repetitions || 0;
+  // Validate quality input
+  if (quality < 0 || quality > 3) {
+    throw new Error('Quality must be between 0 and 3');
+  }
+
+  const currentInterval = sentence.interval || SM2.DEFAULT_INTERVAL;
+  const currentEase = sentence.easeFactor || SM2.DEFAULT_EASE_FACTOR;
+  const currentReps = sentence.repetitions || SM2.DEFAULT_REPETITIONS;
 
   let nextReview;
   let newInterval = currentInterval;
@@ -31,131 +37,118 @@ const updateCardState = (sentence, quality, now = new Date()) => {
   let newReps = currentReps;
 
   // ============================================
-  // 1️⃣ حالة الفشل (0 = خطأ كامل، 1 = صعب)
+  // Case 1: Failed Review (quality 0 or 1)
   // ============================================
   if (quality === 0 || quality === 1) {
     newReps = 0;
-    newInterval = 1; // إعادة تعيين الفاصل ليوم واحد
-    
-    // تعديل عامل السهولة
+    newInterval = SM2.MIN_INTERVAL_DAYS;
+
+    // Adjust ease factor
     if (quality === 0) {
-      newEase = Math.max(1.3, currentEase - 0.2); // خطأ كامل: تقليل أكبر
+      newEase = Math.max(SM2.MIN_EASE_FACTOR, currentEase - 0.2);
     } else {
-      newEase = Math.max(1.3, currentEase - 0.15); // صعب: تقليل متوسط
+      newEase = Math.max(SM2.MIN_EASE_FACTOR, currentEase - 0.15);
     }
 
-    // تحديد وقت المراجعة التالية
+    // Set next review time
     if (quality === 0) {
-      // مراجعة فورية بعد 10 دقائق للأخطاء الكاملة
-      nextReview = addMinutes(now, 10);
+      nextReview = addMinutes(now, SM2.IMMEDIATE_REVIEW_MINUTES);
     } else {
-      // مراجعة بعد يوم للمستوى الصعب
       nextReview = addDays(now, 1);
     }
-  } 
+  }
   // ============================================
-  // 2️⃣ حالة النجاح (2 = جيد، 3 = ممتاز)
+  // Case 2: Successful Review (quality 2 or 3)
   // ============================================
   else {
-    // حساب الفاصل الجديد
+    // Calculate new interval
     if (currentReps === 0) {
-      newInterval = 1; // أول نجاح: يوم واحد
+      newInterval = 1;
     } else if (currentReps === 1) {
-      newInterval = 3; // ثاني نجاح: 3 أيام
+      newInterval = 3;
     } else {
-      // نمو أُسي بناءً على عامل السهولة
       newInterval = Math.round(currentInterval * currentEase);
     }
 
-    // زيادة عدد التكرارات
     newReps = currentReps + 1;
 
-    // تعديل عامل السهولة بناءً على الجودة
+    // Adjust ease factor based on quality
     if (quality === 2) {
-      newEase = currentEase + 0.05; // جيد: زيادة طفيفة
+      newEase = currentEase + 0.05;
     } else if (quality === 3) {
-      newEase = currentEase + 0.15; // ممتاز: زيادة أكبر
+      newEase = currentEase + 0.15;
     }
 
-    // ضمان الحد الأدنى للفاصل = 1 يوم
-    newInterval = Math.max(1, newInterval);
-    
-    // ضمان الحد الأقصى للفاصل = 365 يوم (سنة واحدة)
-    newInterval = Math.min(365, newInterval);
+    // Apply interval constraints
+    newInterval = Math.max(SM2.MIN_INTERVAL_DAYS, newInterval);
+    newInterval = Math.min(SM2.MAX_INTERVAL_DAYS, newInterval);
 
-    // تحديد وقت المراجعة
     nextReview = addDays(now, newInterval);
   }
 
   // ============================================
-  // 3️⃣ ضبط حدود عامل السهولة (1.3 - 3.0)
+  // Apply Ease Factor Constraints
   // ============================================
-  newEase = Math.min(3.0, Math.max(1.3, newEase));
+  newEase = Math.min(SM2.MAX_EASE_FACTOR, Math.max(SM2.MIN_EASE_FACTOR, newEase));
 
   // ============================================
-  // 4️⃣ حساب المستوى (Level) بناءً على الفاصل
+  // Calculate Review Level
   // ============================================
-  let reviewLevel = 'new';
-  
-  if (newInterval === 0) {
-    reviewLevel = 'new';
-  } else if (newInterval <= 1) {
-    reviewLevel = 'learning'; // تعلّم (مراجعة فورية/يومية)
-  } else if (newInterval <= 4) {
-    reviewLevel = 'hard'; // صعب
-  } else if (newInterval <= 10) {
-    reviewLevel = 'good'; // جيد
-  } else if (newInterval <= 30) {
-    reviewLevel = 'excellent'; // ممتاز
-  } else {
-    reviewLevel = 'mastered'; // متقن
-  }
+  const reviewLevel = calculateReviewLevel(newInterval);
 
   return {
     interval: newInterval,
     easeFactor: newEase,
     repetitions: newReps,
-    nextReview: nextReview,
-    reviewLevel: reviewLevel
+    nextReview,
+    reviewLevel
   };
 };
 
 // ============================================
-// 🎨 دالة للحصول على تفاصيل المستوى (للواجهة)
+// Calculate Review Level Based on Interval
 // ============================================
-const getLevelDetails = (interval) => {
-  const levelMap = [
-    { threshold: 0, label: 'new', emoji: '🆕', color: '#6366f1' },
-    { threshold: 1, label: 'learning', emoji: '📚', color: '#8b5cf6' },
-    { threshold: 4, label: 'hard', emoji: '😅', color: '#f59e0b' },
-    { threshold: 10, label: 'good', emoji: '👍', color: '#10b981' },
-    { threshold: 30, label: 'excellent', emoji: '⭐', color: '#3b82f6' },
-    { threshold: 365, label: 'mastered', emoji: '🏆', color: '#ef4444' }
-  ];
-
-  for (let i = levelMap.length - 1; i >= 0; i--) {
-    if (interval >= levelMap[i].threshold) {
-      return levelMap[i];
+const calculateReviewLevel = (interval) => {
+  const levels = Object.values(REVIEW_LEVELS).reverse();
+  
+  for (const level of levels) {
+    if (interval >= level.threshold) {
+      return level.label;
     }
   }
   
-  return levelMap[0];
+  return REVIEW_LEVELS.NEW.label;
 };
 
 // ============================================
-// 📊 حساب الإحصائيات للجملة
+// Get Level Details for UI
+// ============================================
+const getLevelDetails = (interval) => {
+  const levels = Object.values(REVIEW_LEVELS).reverse();
+  
+  for (const level of levels) {
+    if (interval >= level.threshold) {
+      return level;
+    }
+  }
+  
+  return REVIEW_LEVELS.NEW;
+};
+
+// ============================================
+// Calculate Sentence Statistics
 // ============================================
 const calculateSentenceStats = (sentence) => {
   const totalReviews = sentence.reviewCount || 0;
   const correct = sentence.correctCount || 0;
   const wrong = sentence.wrongCount || 0;
-  
+
   const accuracy = totalReviews > 0 
     ? Math.round((correct / totalReviews) * 100) 
     : 0;
-  
+
   const level = getLevelDetails(sentence.interval || 0);
-  
+
   return {
     totalReviews,
     correct,
@@ -165,19 +158,33 @@ const calculateSentenceStats = (sentence) => {
     levelEmoji: level.emoji,
     levelColor: level.color,
     interval: sentence.interval || 0,
-    easeFactor: sentence.easeFactor || 2.5,
+    easeFactor: sentence.easeFactor || SM2.DEFAULT_EASE_FACTOR,
     repetitions: sentence.repetitions || 0,
     nextReview: sentence.nextReview
   };
 };
 
 // ============================================
-// 🔄 Exports
+// Get Next Review Schedule
 // ============================================
+const getNextReviewSchedule = (interval) => {
+  const now = new Date();
+  const nextReview = addDays(now, interval);
+  
+  return {
+    nextReview,
+    daysUntilReview: interval,
+    formattedDate: nextReview.toLocaleDateString('ar-EG'),
+    formattedTime: nextReview.toLocaleTimeString('ar-EG')
+  };
+};
+
 module.exports = {
   updateCardState,
+  calculateReviewLevel,
   getLevelDetails,
   calculateSentenceStats,
+  getNextReviewSchedule,
   addDays,
   addMinutes
 };

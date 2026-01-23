@@ -1,89 +1,107 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const { PASSWORD, EMAIL } = require('../config/constants');
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Please provide a name'],
+      required: [true, 'الاسم مطلوب'],
       trim: true,
-      minlength: [2, 'Name must be at least 2 characters'],
-      maxlength: [50, 'Name cannot exceed 50 characters']
+      minlength: [2, 'الاسم يجب أن يكون حرفين على الأقل'],
+      maxlength: [50, 'الاسم لا يمكن أن يتجاوز 50 حرفاً']
     },
     email: {
       type: String,
-      required: [true, 'Please provide an email'],
+      required: [true, 'الإيميل مطلوب'],
       unique: true,
       lowercase: true,
       trim: true,
       match: [
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        'Please provide a valid email'
-      ]
+        'يرجى إدخال إيميل صالح'
+      ],
+      index: true
     },
     password: {
       type: String,
-      required: [true, 'Please provide a password'],
-      minlength: [8, 'Password must be at least 8 characters'],
-      select: false // لا تُرجع الباسورد في الـ queries العادية
+      required: [true, 'كلمة المرور مطلوبة'],
+      minlength: [PASSWORD.MIN_LENGTH, `كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`],
+      select: false
     },
     isVerified: {
       type: Boolean,
-      default: false
+      default: false,
+      index: true
     },
     verificationToken: String,
     verificationTokenExpire: Date,
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-    refreshToken: String,
     role: {
       type: String,
       enum: ['user', 'admin'],
       default: 'user'
+    },
+    lastLogin: {
+      type: Date
     }
   },
   {
-    timestamps: true // createdAt, updatedAt
+    timestamps: true
   }
 );
 
-// Hash password قبل الحفظ
+// ============================================
+// Indexes for Performance
+// ============================================
+userSchema.index({ email: 1, isVerified: 1 });
 
+// ============================================
+// Pre-save Hook: Hash Password
+// ============================================
+userSchema.pre('save', async function (next) {
+  // Only hash if password is modified
+  if (!this.isModified('password')) {
+    return next();
+  }
 
-userSchema.pre('save', async function () {
-  // إذا لم يتم تعديل الباسورد، تخطى
-  if (!this.isModified('password')) return;
-
-  // Hash الباسورد (12 round آمن)
-  const salt = await bcrypt.genSalt(12);
-  this.password = await bcrypt.hash(this.password, salt);
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
-// Method للتحقق من الباسورد
+// ============================================
+// Instance Method: Compare Password
+// ============================================
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Method لإنشاء verification token
+// ============================================
+// Instance Method: Create Verification Token
+// ============================================
 userSchema.methods.createVerificationToken = function () {
-  // توليد token عشوائي
   const verificationToken = crypto.randomBytes(32).toString('hex');
 
-  // Hash وحفظ في الداتابيز
   this.verificationToken = crypto
     .createHash('sha256')
     .update(verificationToken)
     .digest('hex');
 
-  // صلاحية 24 ساعة
-  this.verificationTokenExpire = Date.now() + 24 * 60 * 60 * 1000;
+  this.verificationTokenExpire = Date.now() + EMAIL.VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000;
 
-  // إرجاع الـ token الأصلي (غير الـ hashed) لإرساله بالإيميل
   return verificationToken;
 };
 
-// Method لإنشاء reset password token
+// ============================================
+// Instance Method: Create Reset Password Token
+// ============================================
 userSchema.methods.createResetPasswordToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
 
@@ -92,10 +110,17 @@ userSchema.methods.createResetPasswordToken = function () {
     .update(resetToken)
     .digest('hex');
 
-  // صلاحية 10 دقائق فقط
-  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+  this.resetPasswordExpire = Date.now() + EMAIL.RESET_PASSWORD_TOKEN_EXPIRY_MINUTES * 60 * 1000;
 
   return resetToken;
+};
+
+// ============================================
+// Instance Method: Update Last Login
+// ============================================
+userSchema.methods.updateLastLogin = async function () {
+  this.lastLogin = new Date();
+  await this.save({ validateBeforeSave: false });
 };
 
 module.exports = mongoose.model('User', userSchema);
