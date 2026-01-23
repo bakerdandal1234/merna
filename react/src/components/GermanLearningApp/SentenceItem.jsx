@@ -13,7 +13,8 @@ export default function SentenceItem({
   deleteSentence,
 }) {
   const isEditing = editingId === sentence._id;
-
+  const canEdit = sentence.isOwner || false;
+  const canDelete = sentence.isOwner || false;
   return (
     <div className="sentence-card">
       {isEditing ? (
@@ -56,13 +57,13 @@ export default function SentenceItem({
                 }}
                 className="icon-button"
               >
-                <Edit2 size={18} color="#3b82f6" />
+                {canEdit && <Edit2 size={18} color="#3b82f6" />}
               </button>
               <button
                 onClick={() => deleteSentence(sentence._id)}
                 className="icon-button"
               >
-                <Trash2 size={18} color="#ef4444" />
+                {canDelete && <Trash2 size={18} color="#ef4444" />}
               </button>
             </div>
           </div>

@@ -86,6 +86,7 @@ export default function GermanLearningApp() {
       if (response.data.success) {
         console.log('✅', response.data.message);
         fetchSentences();
+        return true;
       }
     } catch (error) {
       const errorInfo = handleApiError(error);
@@ -122,6 +123,7 @@ export default function GermanLearningApp() {
       // ✅ معالجة أخطاء Authorization
       if (error.response?.status === 403) {
         alert('🚫 غير مسموح! يمكنك فقط حذف الجمل التي أضفتها أنت');
+        
       } else if (error.response?.status === 404) {
         alert('❌ الجملة غير موجودة');
       } else {

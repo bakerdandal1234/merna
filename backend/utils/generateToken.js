@@ -24,8 +24,8 @@ exports.sendTokenResponse = (user, statusCode, res) => {
     // ✅ إعدادات صحيحة للتطوير
     const cookieOptions = {
       httpOnly: true, // ✅ يمنع JavaScript من الوصول (أمن ضد XSS)
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // ✅ lax للتطوير
-      secure: process.env.NODE_ENV === 'production', // ✅ false في التطوير (http)
+      secure: true,      // Render = HTTPS
+      sameSite: 'none',  // Cross-site
       maxAge: 7 * 24 * 60 * 60 * 1000, // ✅ 7 أيام
       path: '/' // ✅ متاح لكل المسارات
     };
