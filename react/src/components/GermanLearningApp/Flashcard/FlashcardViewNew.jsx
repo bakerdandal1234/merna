@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getDueSentences, getLevelDetails, getMotivationalMessage } from '../../../utils/srsUtils';
+import api from '../../../services/api';
+import { handleApiError } from '../../../utils/apiHelper';
 import './FlashcardNew.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://merna-ugyu.onrender.com/api';
 
 export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true }) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -87,31 +87,51 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
     setTimeout(() => setShowMotivation(false), 3000);
 
     try {
-      // استدعاء API الجديد
-      const response = await fetch(`${API_URL}/sentences/${currentCard._id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quality })
+      // ✅ استدعاء API باستخدام axios instance
+      const response = await api.post(`/sentences/${currentCard._id}/review`, {
+        quality
       });
 
-      if (!response.ok) throw new Error('فشل في تحديث البطاقة');
+      // ✅ التحقق من النجاح
+      if (response.data.success) {
+        console.log('✅ تمت المراجعة:', response.data.message);
+        
+        // ✅ عرض معلومات التغييرات
+        if (response.data.changes) {
+          console.log('📊 التغييرات:', response.data.changes);
+          // intervalChange: "0 → 1 أيام"
+          // levelChange: "learning"
+          // nextReviewDate: "٢٤/٠١/٢٠٢٦"
+        }
+        
+        // تحديث البيانات
+        if (onUpdate) {
+          onUpdate();
+        }
 
-      const data = await response.json();
-      
-      // تحديث البيانات
-      if (onUpdate) {
-        onUpdate();
+        // الانتقال للبطاقة التالية
+        setTimeout(() => {
+          setAnimation('');
+          nextCard();
+          setIsReviewing(false);
+        }, 1000);
       }
 
-      // الانتقال للبطاقة التالية
-      setTimeout(() => {
-        setAnimation('');
-        nextCard();
-        setIsReviewing(false);
-      }, 1000);
-
     } catch (error) {
-      console.error('خطأ في المراجعة:', error);
+      const errorInfo = handleApiError(error);
+      console.error('❌ خطأ في المراجعة:', errorInfo);
+      
+      // ✅ معالجة أخطاء Authorization
+      if (error.response?.status === 403) {
+        alert('🚫 غير مسموح! يمكنك فقط مراجعة الجمل التي أضفتها أنت');
+      } else if (error.response?.status === 404) {
+        alert('❌ الجملة غير موجودة');
+      } else if (error.response?.status === 400) {
+        alert('❌ التقييم غير صالح');
+      } else {
+        alert(errorInfo.message);
+      }
+      
       setAnimation('');
       setIsReviewing(false);
     }

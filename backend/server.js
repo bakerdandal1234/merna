@@ -34,9 +34,10 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
+  credentials: true, // ✅ ضروري لإرسال الـ cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Set-Cookie'] // ✅ ضروري للسماح بقراءة cookies
 }));
 
 
@@ -160,6 +161,7 @@ const Sentence = mongoose.model('Sentence', sentenceSchema);
 const authRoutes = require('./routes/authRoutes');
 const { protect } = require('./middleware/auth');
 const { generalLimiter } = require('./middleware/rateLimiter');
+const { checkSentenceOwnership } = require('./middleware/checkOwnership');
 
 // ============================================
 // 🌐 Routes
@@ -185,7 +187,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 
 // ============================================
-// 📚 Sentence Routes (Protected)
+// 📚 Sentence Routes (Protected) - مع توحيد الاستجابات
 // ============================================
 
 // GET - جلب جمل المستخدم فقط
@@ -198,9 +200,17 @@ app.get('/api/sentences', protect, async (req, res) => {
       return { ...s.toObject(), stats };
     });
     
-    res.json(sentencesWithStats);
+    res.json({
+      success: true,
+      count: sentencesWithStats.length,
+      sentences: sentencesWithStats
+    });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في جلب الجمل', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب الجمل',
+      error: error.message
+    });
   }
 });
 
@@ -217,6 +227,7 @@ app.post('/api/sentences', protect, async (req, res) => {
     
     if (existingSentence) {
       return res.status(400).json({
+        success: false,
         message: 'الجملة موجودة مسبقًا',
         exists: true
       });
@@ -240,30 +251,34 @@ app.post('/api/sentences', protect, async (req, res) => {
     await newSentence.save();
     
     const stats = calculateSentenceStats(newSentence);
-    res.status(201).json({ ...newSentence.toObject(), stats });
+    res.status(201).json({
+      success: true,
+      message: '✅ تم إضافة الجملة بنجاح',
+      sentence: { ...newSentence.toObject(), stats }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في إضافة الجملة', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إضافة الجملة',
+      error: error.message
+    });
   }
 });
 
 // POST - مراجعة الجملة بنظام SM-2
-app.post('/api/sentences/:id/review', protect, async (req, res) => {
+app.post('/api/sentences/:id/review', protect, checkSentenceOwnership(Sentence), async (req, res) => {
   try {
     const { quality } = req.body;
     
     if (quality < 0 || quality > 3) {
-      return res.status(400).json({ message: 'التقييم يجب أن يكون بين 0 و 3' });
+      return res.status(400).json({
+        success: false,
+        message: 'التقييم يجب أن يكون بين 0 و 3'
+      });
     }
 
-    const sentence = await Sentence.findOne({ 
-      _id: req.params.id, 
-      userId: req.user.id 
-    });
-    
-    if (!sentence) {
-      return res.status(404).json({ message: 'الجملة غير موجودة' });
-    }
-
+    // استخدام req.sentence من middleware
+    const sentence = req.sentence;
     const intervalBefore = sentence.interval;
     const newState = updateCardState(sentence, quality);
 
@@ -293,7 +308,8 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
     const stats = calculateSentenceStats(sentence);
     
     res.json({
-      message: 'تم تحديث البطاقة بنجاح',
+      success: true,
+      message: '✅ تم تحديث البطاقة بنجاح',
       sentence: { ...sentence.toObject(), stats },
       changes: {
         intervalChange: `${intervalBefore} → ${newState.interval} أيام`,
@@ -302,7 +318,11 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في المراجعة', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في المراجعة',
+      error: error.message
+    });
   }
 });
 
@@ -322,11 +342,16 @@ app.get('/api/sentences/due', protect, async (req, res) => {
     });
     
     res.json({
+      success: true,
       count: sentencesWithStats.length,
       sentences: sentencesWithStats
     });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في جلب الجمل المستحقة', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب الجمل المستحقة',
+      error: error.message
+    });
   }
 });
 
@@ -380,9 +405,16 @@ app.get('/api/stats', protect, async (req, res) => {
       ? ((totalCorrect / totalReviews) * 100).toFixed(1)
       : 0;
     
-    res.json(stats);
+    res.json({
+      success: true,
+      stats
+    });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في حساب الإحصائيات', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في حساب الإحصائيات',
+      error: error.message
+    });
   }
 });
 
@@ -407,55 +439,64 @@ app.post('/api/sentences/reset', protect, async (req, res) => {
       }
     );
     
-    res.json({ message: '✅ تم إعادة تعيين جميع الجمل بنجاح' });
+    res.json({
+      success: true,
+      message: '✅ تم إعادة تعيين جميع الجمل بنجاح'
+    });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في إعادة التعيين', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إعادة التعيين',
+      error: error.message
+    });
   }
 });
 
-// PUT - تعديل الجملة
-app.put('/api/sentences/:id', protect, async (req, res) => {
+// PUT - تعديل الجملة (للمالك فقط)
+app.put('/api/sentences/:id', protect, checkSentenceOwnership(Sentence), async (req, res) => {
   try {
     const { german, arabic, favorite } = req.body;
 
-    const updateData = {};
+    // استخدام req.sentence من middleware
+    const sentence = req.sentence;
     
-    if (german) updateData.german = german;
-    if (arabic) updateData.arabic = arabic;
-    if (favorite !== undefined) updateData.favorite = favorite;
+    if (german) sentence.german = german;
+    if (arabic) sentence.arabic = arabic;
+    if (favorite !== undefined) sentence.favorite = favorite;
 
-    const updatedSentence = await Sentence.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      updateData,
-      { new: true, runValidators: true }
-    );
+    await sentence.save();
 
-    if (!updatedSentence) {
-      return res.status(404).json({ message: 'الجملة غير موجودة' });
-    }
-
-    const stats = calculateSentenceStats(updatedSentence);
-    res.json({ ...updatedSentence.toObject(), stats });
+    const stats = calculateSentenceStats(sentence);
+    res.json({
+      success: true,
+      message: '✅ تم تعديل الجملة بنجاح',
+      sentence: { ...sentence.toObject(), stats }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في تعديل الجملة', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تعديل الجملة',
+      error: error.message
+    });
   }
 });
 
-// DELETE - حذف الجملة
-app.delete('/api/sentences/:id', protect, async (req, res) => {
+// DELETE - حذف الجملة (للمالك فقط)
+app.delete('/api/sentences/:id', protect, checkSentenceOwnership(Sentence), async (req, res) => {
   try {
-    const deletedSentence = await Sentence.findOneAndDelete({ 
-      _id: req.params.id, 
-      userId: req.user.id 
+    // استخدام req.sentence من middleware
+    await Sentence.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: '🗑️ تم حذف الجملة بنجاح'
     });
-
-    if (!deletedSentence) {
-      return res.status(404).json({ message: 'الجملة غير موجودة' });
-    }
-
-    res.json({ message: '🗑️ تم حذف الجملة بنجاح', sentence: deletedSentence });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في حذف الجملة', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في حذف الجملة',
+      error: error.message
+    });
   }
 });
 
@@ -470,15 +511,45 @@ app.use((req, res) => {
 });
 
 // ============================================
-// Global Error Handler
+// Global Error Handler - محسّن
 // ============================================
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
+  console.error('❌ Error:', err.stack);
   
+  // التعامل مع أخطاء Mongoose Validation
+  if (err.name === 'ValidationError') {
+    const errors = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({
+      success: false,
+      message: 'خطأ في التحقق من البيانات',
+      errors
+    });
+  }
+
+  // التعامل مع أخطاء Mongoose CastError
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: 'معرّف غير صالح'
+    });
+  }
+
+  // التعامل مع أخطاء Duplicate Key
+  if (err.code === 11000) {
+    return res.status(400).json({
+      success: false,
+      message: 'البيانات مكررة'
+    });
+  }
+
+  // خطأ عام
   res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || 'حدث خطأ في الخادم',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: err.stack,
+      error: err 
+    })
   });
 });
 
@@ -493,6 +564,7 @@ app.listen(PORT, () => {
   ║   🚀 Server Running on Port ${PORT}      ║
   ║   🌍 Environment: ${process.env.NODE_ENV}          ║
   ║   🔐 Authentication: Enabled           ║
+  ║   🛡️  Authorization: Active            ║
   ║   🧠 SM-2 Algorithm: Active            ║
   ║   🔗 API: http://localhost:${PORT}/api    ║
   ╚════════════════════════════════════════╝
@@ -502,4 +574,13 @@ app.listen(PORT, () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('❌ Unhandled Rejection:', err);
+  // في الإنتاج، يمكنك إغلاق الـ server هنا
+  // process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  // في الإنتاج، يجب إغلاق الـ server
+  // process.exit(1);
 });

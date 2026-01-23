@@ -23,11 +23,11 @@ exports.sendTokenResponse = (user, statusCode, res) => {
 
     // ✅ إعدادات صحيحة للتطوير
     const cookieOptions = {
-      httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: process.env.NODE_ENV === 'production', // true فقط في الإنتاج
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/'
+      httpOnly: true, // ✅ يمنع JavaScript من الوصول (أمن ضد XSS)
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // ✅ lax للتطوير
+      secure: process.env.NODE_ENV === 'production', // ✅ false في التطوير (http)
+      maxAge: 7 * 24 * 60 * 60 * 1000, // ✅ 7 أيام
+      path: '/' // ✅ متاح لكل المسارات
     };
 
     // ✅ تحقق من وجود الـ secret

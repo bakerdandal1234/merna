@@ -177,23 +177,31 @@ exports.login = async (req, res) => {
 // @access  Public
 exports.refreshToken = async (req, res) => {
   try {
+    console.log('🔄 محاولة تجديد Access Token...');
+    console.log('🍪 Cookies:', req.cookies);
+    
     // جلب الـ refresh token من الـ cookie
     const { refreshToken } = req.cookies;
 
     if (!refreshToken) {
+      console.log('❌ Refresh Token غير موجود في cookies');
       return res.status(401).json({
         success: false,
         message: 'Refresh token غير موجود'
       });
     }
+    
+    console.log('✅ Refresh Token موجود');
 
     // التحقق من صحة الـ token
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    console.log('✅ Token valid, User ID:', decoded.id);
 
     // جلب المستخدم
     const user = await User.findById(decoded.id);
 
     if (!user || !user.isVerified) {
+      console.log('❌ مستخدم غير صالح أو غير مفعّل');
       return res.status(401).json({
         success: false,
         message: 'مستخدم غير صالح'
@@ -202,6 +210,7 @@ exports.refreshToken = async (req, res) => {
 
     // إنشاء access token جديد
     const newAccessToken = generateAccessToken(user._id);
+    console.log('✅ تم إنشاء Access Token جديد');
 
     res.status(200).json({
       success: true,
