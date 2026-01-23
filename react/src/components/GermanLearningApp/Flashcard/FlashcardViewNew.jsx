@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getDueSentences, getLevelDetails, getMotivationalMessage } from '../../../utils/srsUtils';
+import { getDueSentences, getLevelDetails, getMotivationalMessage, calculateNextInterval, formatInterval, formatDate, calculateNextReviewDate } from '../../../utils/srsUtils';
 import api from '../../../services/api';
 import { handleApiError } from '../../../utils/apiHelper';
 import './FlashcardNew.css';
@@ -14,6 +14,9 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
   const [motivationMessage, setMotivationMessage] = useState('');
   const [correctStreak, setCorrectStreak] = useState(0);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [completedSession, setCompletedSession] = useState(false);
+  const [cardProgress, setCardProgress] = useState(null); // 🆕 التقدم الشخصي
+  const [loadingProgress, setLoadingProgress] = useState(false);
   const cardRef = useRef(null);
 
   // تصفية الجمل
@@ -33,33 +36,74 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
     setIsFlipped(false);
     setAnimation('');
     setCorrectStreak(0);
+    setCompletedSession(false);
   }, [sentences]);
 
   useEffect(() => {
+    // التحقق من إكمال جميع الجمل
     if (currentCardIndex >= filteredSentences.length && filteredSentences.length > 0) {
-      setCurrentCardIndex(0);
+      setCompletedSession(true);
+    } else {
+      setCompletedSession(false);
     }
   }, [filteredSentences.length, currentCardIndex]);
 
   const currentCard = filteredSentences[currentCardIndex];
 
+  // 🔄 جلب التقدم الشخصي عند تغيير البطاقة
+  useEffect(() => {
+    const fetchProgress = async () => {
+      if (!currentCard || !currentCard._id) return;
+      
+      setLoadingProgress(true);
+      try {
+        // جلب التقدم من Backend
+        const response = await api.get(`/progress/${currentCard._id}`);
+        setCardProgress(response.data.progress);
+      } catch (error) {
+        // إذا لم يوجد تقدم → بطاقة جديدة
+        console.log('بطاقة جديدة');
+        setCardProgress({
+          interval: 0,
+          easeFactor: 2.5,
+          repetitions: 0,
+          reviewLevel: 'new'
+        });
+      } finally {
+        setLoadingProgress(false);
+      }
+    };
+    
+    fetchProgress();
+  }, [currentCard]);
+
   const nextCard = useCallback(() => {
     setShowArabic(false);
     setIsFlipped(false);
     setAnimation('');
-    setCurrentCardIndex(prev => 
-      prev < filteredSentences.length - 1 ? prev + 1 : 0
-    );
-  }, [filteredSentences.length]);
+    
+    // ✅ التحقق: هل نحن في آخر جملة؟
+    if (currentCardIndex < filteredSentences.length - 1) {
+      // لا زلنا في القائمة → انتقل للتالي
+      setCurrentCardIndex(prev => prev + 1);
+    } else {
+      // وصلنا لآخر جملة → تفعيل حالة الإكمال
+      setCompletedSession(true);
+    }
+  }, [currentCardIndex, filteredSentences.length]);
 
   const prevCard = useCallback(() => {
     setShowArabic(false);
     setIsFlipped(false);
     setAnimation('');
-    setCurrentCardIndex(prev => 
-      prev > 0 ? prev - 1 : filteredSentences.length - 1
-    );
-  }, [filteredSentences.length]);
+    
+    // ✅ التحقق: هل نحن في أول جملة؟
+    if (currentCardIndex > 0) {
+      // لا زلنا في القائمة → انتقل للسابق
+      setCurrentCardIndex(prev => prev - 1);
+    }
+    // إذا كنا في أول جملة → لا تفعل شيء
+  }, [currentCardIndex]);
 
   // دالة المراجعة الرئيسية مع نظام SM-2
   const handleReview = useCallback(async (quality) => {
@@ -80,12 +124,6 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
       setCorrectStreak(0);
     }
 
-    // رسالة تحفيزية
-    const message = getMotivationalMessage(quality, quality >= 2 ? correctStreak + 1 : 0);
-    setMotivationMessage(message);
-    setShowMotivation(true);
-    setTimeout(() => setShowMotivation(false), 3000);
-
     try {
       // ✅ استدعاء API باستخدام axios instance
       const response = await api.post(`/sentences/${currentCard._id}/review`, {
@@ -96,12 +134,23 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
       if (response.data.success) {
         console.log('✅ تمت المراجعة:', response.data.message);
         
-        // ✅ عرض معلومات التغييرات
+        // ✅ عرض معلومات التغييرات ورسالة تحفيزية
         if (response.data.changes) {
           console.log('📊 التغييرات:', response.data.changes);
-          // intervalChange: "0 → 1 أيام"
-          // levelChange: "learning"
-          // nextReviewDate: "٢٤/٠١/٢٠٢٦"
+          
+          // تجهيز الرسالة الكاملة
+          const { nextReviewDate, intervalChange } = response.data.changes;
+          const motivMsg = getMotivationalMessage(quality, quality >= 2 ? correctStreak + 1 : 0);
+          
+          let fullMessage = motivMsg;
+          if (nextReviewDate && intervalChange) {
+            const nextDate = formatDate(new Date(nextReviewDate));
+            fullMessage = `${motivMsg}\n\n⏰ ${nextDate}\n📊 ${intervalChange}`;
+          }
+          
+          setMotivationMessage(fullMessage);
+          setShowMotivation(true);
+          setTimeout(() => setShowMotivation(false), 4000);
         }
         
         // تحديث البيانات
@@ -109,10 +158,18 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
           onUpdate();
         }
 
-        // الانتقال للبطاقة التالية
+        // ✅ الانتقال للبطاقة التالية (فقط إذا لم نكن في آخر جملة)
         setTimeout(() => {
           setAnimation('');
-          nextCard();
+          
+          // التحقق من وجود جملة تالية
+          if (currentCardIndex < filteredSentences.length - 1) {
+            nextCard();
+          } else {
+            // آخر جملة → فقط إيقاف المراجعة (سيتم تحديث القائمة وستظهر رسالة "لا توجد جمل")
+            console.log('✅ أحسنت! أنهيت جميع الجمل المستحقة');
+          }
+          
           setIsReviewing(false);
         }, 1000);
       }
@@ -121,15 +178,42 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
       const errorInfo = handleApiError(error);
       console.error('❌ خطأ في المراجعة:', errorInfo);
       
-      // ✅ معالجة أخطاء Authorization
-      if (error.response?.status === 403) {
-        alert('🚫 غير مسموح! يمكنك فقط مراجعة الجمل التي أضفتها أنت');
+      // ✅ معالجة أخطاء مختلفة برسائل واضحة
+      let userMessage = '';
+      
+      if (error.response?.status === 500) {
+        const serverMessage = error.response?.data?.message || '';
+        
+        if (serverMessage.includes('userId مفقود')) {
+          // جملة قديمة/تالفة في قاعدة البيانات
+          userMessage = '⚠️ هذه الجملة تحتوي على بيانات غير صحيحة.\n\nسيتم تخطيها تلقائياً. جرب الجملة التالية.';
+          
+          // الانتقال للبطاقة التالية تلقائياً
+          setTimeout(() => {
+            setAnimation('');
+            nextCard();
+            setIsReviewing(false);
+          }, 1500);
+        } else {
+          userMessage = '❌ خطأ في الخادم. حاول مرة أخرى.';
+        }
+      } else if (error.response?.status === 403) {
+        userMessage = '🚫 غير مسموح! يمكنك فقط مراجعة الجمل التي أضفتها أنت';
       } else if (error.response?.status === 404) {
-        alert('❌ الجملة غير موجودة');
+        userMessage = '❌ الجملة غير موجودة. سيتم تحديث القائمة.';
+        // تحديث القائمة
+        if (onUpdate) onUpdate();
       } else if (error.response?.status === 400) {
-        alert('❌ التقييم غير صالح');
+        userMessage = '❌ التقييم غير صالح';
+      } else if (error.response?.status === 401) {
+        userMessage = '🔒 انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.';
       } else {
-        alert(errorInfo.message);
+        userMessage = errorInfo.message || '❌ حدث خطأ غير متوقع';
+      }
+      
+      // عرض الرسالة فقط إذا لم يكن userId مفقود (لأننا سننتقل تلقائياً)
+      if (!error.response?.data?.message?.includes('userId مفقود')) {
+        alert(userMessage);
       }
       
       setAnimation('');
@@ -166,19 +250,51 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  if (!currentCard) {
+  // عرض رسالة الإكمال
+  if (completedSession || !currentCard) {
     return (
       <div className="flashcard-container">
         <div className="flashcard-empty">
           <div className="empty-icon">🎉</div>
-          <h2>أحسنت! لا توجد بطاقات للمراجعة الآن</h2>
-          <p>عد لاحقاً أو أضف جمل جديدة</p>
+          <h2>
+            {completedSession 
+              ? 'رائع! أكملت جميع الجمل المستحقة للمراجعة!' 
+              : 'أحسنت! لا توجد بطاقات للمراجعة الآن'
+            }
+          </h2>
+          <p>
+            {completedSession
+              ? `لقد راجعت ${filteredSentences.length} جملة بنجاح`
+              : 'عد لاحقاً أو أضف جمل جديدة'
+            }
+          </p>
+          {completedSession && (
+            <div style={{ marginTop: '20px' }}>
+              <button 
+                className="review-btn btn-excellent"
+                onClick={() => {
+                  setCurrentCardIndex(0);
+                  setCompletedSession(false);
+                  setCorrectStreak(0);
+                  setShowArabic(false);
+                  setIsFlipped(false);
+                }}
+                style={{ padding: '12px 24px', fontSize: '16px' }}
+              >
+                <span className="btn-emoji">🔄</span>
+                <span className="btn-text">ابدأ من جديد</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  const levelDetails = getLevelDetails(currentCard.interval || 0);
+  // ✅ استخدام التقدم الشخصي لعرض المستوى
+  const levelDetails = cardProgress 
+    ? getLevelDetails(cardProgress.interval || 0) 
+    : getLevelDetails(0);
   const stats = currentCard.stats || {};
 
   return (
@@ -221,19 +337,19 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
               <div className="card-stats">
                 <div className="stat-item">
                   <span className="stat-label">المراجعات</span>
-                  <span className="stat-value">{currentCard.reviewCount || 0}</span>
+                  <span className="stat-value">{cardProgress?.reviewCount || 0}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">الدقة</span>
                   <span className="stat-value">
-                    {currentCard.reviewCount > 0 
-                      ? `${Math.round((currentCard.correctCount / currentCard.reviewCount) * 100)}%`
+                    {cardProgress?.reviewCount > 0 
+                      ? `${Math.round((cardProgress.correctCount / cardProgress.reviewCount) * 100)}%`
                       : '-'}
                   </span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">الفاصل</span>
-                  <span className="stat-value">{currentCard.interval || 0} يوم</span>
+                  <span className="stat-value">{cardProgress?.interval || 0} يوم</span>
                 </div>
               </div>
             </div>
@@ -260,58 +376,84 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
         </div>
       </div>
 
-      {/* الأزرار - 4 مستويات */}
-      {showArabic && !isReviewing && (
-        <div className="review-buttons">
-          <button 
-            className="review-btn btn-wrong"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(0);
-            }}
-          >
-            <span className="btn-emoji">❌</span>
-            <span className="btn-text">Again</span>
-            <span className="btn-shortcut">0</span>
-          </button>
-          
-          <button 
-            className="review-btn btn-hard"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(1);
-            }}
-          >
-            <span className="btn-emoji">😅</span>
-            <span className="btn-text">Hard</span>
-            <span className="btn-shortcut">1</span>
-          </button>
-          
-          <button 
-            className="review-btn btn-good"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(2);
-            }}
-          >
-            <span className="btn-emoji">👍</span>
-            <span className="btn-text">Good</span>
-            <span className="btn-shortcut">2</span>
-          </button>
-          
-          <button 
-            className="review-btn btn-excellent"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(3);
-            }}
-          >
-            <span className="btn-emoji">⭐</span>
-            <span className="btn-text">Excellent</span>
-            <span className="btn-shortcut">3</span>
-          </button>
+      {/* مؤشر التحميل */}
+      {showArabic && loadingProgress && (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <div className="spinner"></div>
+          <p>جاري تحميل التقدم...</p>
         </div>
       )}
+
+      {/* الأزرار - 4 مستويات */}
+      {showArabic && !isReviewing && !loadingProgress && cardProgress && (() => {
+        // ✅ حساب الفترات باستخدام التقدم الشخصي
+        const intervals = [
+          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 0),
+          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 1),
+          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 2),
+          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 3)
+        ];
+
+        return (
+          <div className="review-buttons">
+            <button 
+              className="review-btn btn-wrong"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReview(0);
+              }}
+              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[0]))}`}
+            >
+              <span className="btn-emoji">❌</span>
+              <span className="btn-text">Again</span>
+              <span className="btn-interval">{formatInterval(intervals[0])}</span>
+              <span className="btn-shortcut">0</span>
+            </button>
+            
+            <button 
+              className="review-btn btn-hard"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReview(1);
+              }}
+              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[1]))}`}
+            >
+              <span className="btn-emoji">😅</span>
+              <span className="btn-text">Hard</span>
+              <span className="btn-interval">{formatInterval(intervals[1])}</span>
+              <span className="btn-shortcut">1</span>
+            </button>
+            
+            <button 
+              className="review-btn btn-good"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReview(2);
+              }}
+              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[2]))}`}
+            >
+              <span className="btn-emoji">👍</span>
+              <span className="btn-text">Good</span>
+              <span className="btn-interval">{formatInterval(intervals[2])}</span>
+              <span className="btn-shortcut">2</span>
+            </button>
+            
+            <button 
+              className="review-btn btn-excellent"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReview(3);
+              }}
+              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[3]))}`}
+            >
+              <span className="btn-emoji">⭐</span>
+              <span className="btn-text">Excellent</span>
+              <span className="btn-interval">{formatInterval(intervals[3])}</span>
+              <span className="btn-shortcut">3</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* أزرار التنقل */}
       <div className="navigation-buttons">

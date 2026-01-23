@@ -317,7 +317,7 @@ app.post('/api/sentences', protect, async (req, res) => {
   }
 });
 
-// POST - مراجعة الجملة بنظام SM-2 (متاح لجميع المستخدمين)
+// POST - مراجعة الجملة بنظام SM-2 (متاح لجميع المستخدمين) - ✅ FIXED
 app.post('/api/sentences/:id/review', protect, async (req, res) => {
   try {
     const { quality } = req.body;
@@ -329,16 +329,73 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
       });
     }
 
-    // البحث عن الجملة بدون التحقق من الملكية
-    const sentence = await Sentence.findById(req.params.id);
+    // البحث عن الجملة الأصلية
+    const originalSentence = await Sentence.findById(req.params.id);
     
-    if (!sentence) {
+    if (!originalSentence) {
       return res.status(404).json({
         success: false,
         message: 'الجملة غير موجودة'
       });
     }
-    const intervalBefore = sentence.interval;
+
+    // ✅ التحقق من وجود userId في الجملة الأصلية
+    if (!originalSentence.userId) {
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في بيانات الجملة - userId مفقود'
+      });
+    }
+
+    // ✅ التحقق من وجود المستخدم الحالي
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح. يرجى تسجيل الدخول'
+      });
+    }
+
+    // التحقق من الملكية
+    const isOwner = originalSentence.userId.toString() === req.user._id.toString();
+    
+    let sentence;
+    let intervalBefore;
+    
+    if (isOwner) {
+      // ✅ المستخدم هو المالك - تحديث الجملة الأصلية
+      sentence = originalSentence;
+      intervalBefore = sentence.interval;
+    } else {
+      // ✅ المستخدم ليس المالك - البحث عن نسخته الخاصة أو إنشائها
+      let userSentence = await Sentence.findOne({
+        userId: req.user._id,
+        german: originalSentence.german,
+        arabic: originalSentence.arabic
+      });
+      
+      if (!userSentence) {
+        // إنشاء نسخة جديدة للمستخدم
+        userSentence = new Sentence({
+          userId: req.user._id,
+          german: originalSentence.german,
+          arabic: originalSentence.arabic,
+          interval: 0,
+          easeFactor: 2.5,
+          repetitions: 0,
+          reviewLevel: 'new',
+          nextReview: new Date(),
+          reviewCount: 0,
+          correctCount: 0,
+          wrongCount: 0,
+          reviewHistory: []
+        });
+      }
+      
+      sentence = userSentence;
+      intervalBefore = sentence.interval;
+    }
+    
+    // تطبيق خوارزمية SM-2
     const newState = updateCardState(sentence, quality);
 
     sentence.interval = newState.interval;
@@ -368,15 +425,17 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
     
     res.json({
       success: true,
-      message: '✅ تم تحديث البطاقة بنجاح',
-      sentence: { ...sentence.toObject(), stats },
+      message: isOwner ? '✅ تم تحديث البطاقة بنجاح' : '✅ تم إنشاء نسخة خاصة بك وتحديثها',
+      sentence: { ...sentence.toObject(), stats, isOwner: true },
       changes: {
         intervalChange: `${intervalBefore} → ${newState.interval} أيام`,
         levelChange: newState.reviewLevel,
         nextReviewDate: newState.nextReview.toLocaleDateString('ar-EG')
-      }
+      },
+      wasCreated: !isOwner
     });
   } catch (error) {
+    console.error('❌ خطأ في المراجعة:', error);
     res.status(500).json({
       success: false,
       message: 'خطأ في المراجعة',

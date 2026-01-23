@@ -169,6 +169,41 @@ export const calculateProgress = (sentences) => {
   return Math.round((mastered / sentences.length) * 100);
 };
 
+// دالة لحساب الفترة القادمة بناءً على التقييم (نفس منطق Backend)
+export const calculateNextInterval = (currentInterval, currentEaseFactor, quality) => {
+  const ef = currentEaseFactor || 2.5;
+  const interval = currentInterval || 0;
+
+  // حساب EF الجديد
+  let newEF = ef + (0.1 - (3 - quality) * (0.08 + (3 - quality) * 0.02));
+  if (newEF < 1.3) newEF = 1.3;
+
+  let newInterval;
+
+  if (quality < 2) {
+    // Again (0) أو Hard (1) → إعادة التعلم
+    newInterval = 1;
+  } else if (interval === 0) {
+    // أول مرة Good (2) أو Excellent (3)
+    newInterval = quality === 2 ? 1 : 4;
+  } else if (interval === 1) {
+    // ثاني مرة
+    newInterval = quality === 2 ? 6 : 10;
+  } else {
+    // التكرارات التالية
+    newInterval = Math.round(interval * newEF);
+  }
+
+  return newInterval;
+};
+
+// دالة لحساب التاريخ القادم
+export const calculateNextReviewDate = (days) => {
+  const nextDate = new Date();
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
 export default {
   getDueSentences,
   getLevelDetails,
@@ -176,5 +211,7 @@ export default {
   formatInterval,
   formatDate,
   getMotivationalMessage,
-  calculateProgress
+  calculateProgress,
+  calculateNextInterval,
+  calculateNextReviewDate
 };

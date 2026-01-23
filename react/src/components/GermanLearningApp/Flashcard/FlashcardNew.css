@@ -249,6 +249,16 @@
   font-size: 0.9rem;
 }
 
+.btn-interval {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  margin-top: 0.25rem;
+}
+
 .btn-shortcut {
   position: absolute;
   top: 0.25rem;
@@ -359,6 +369,9 @@
   font-weight: 600;
   text-align: center;
   box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  white-space: pre-line;
+  max-width: 500px;
+  line-height: 1.6;
 }
 
 @keyframes fadeInOut {
