@@ -2,6 +2,7 @@ const Sentence = require('../models/Sentence');
 const { updateCardState, calculateSentenceStats } = require('../srsController');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { HTTP_STATUS, ERRORS, PAGINATION } = require('../config/constants');
+const { Logger } = require('../utils/logger');
 
 // ============================================
 // Helper: Validate and parse pagination params
@@ -72,6 +73,7 @@ exports.getSentences = asyncHandler(async (req, res, next) => {
       .sort(sort)
       .limit(limit)
       .skip(skip)
+      .select('-reviewHistory') // Optimize by excluding large arrays
       .lean(),
     Sentence.countDocuments(filters)
   ]);
@@ -86,6 +88,7 @@ exports.getSentences = asyncHandler(async (req, res, next) => {
 
   res.json({
     success: true,
+    count: sentencesWithStats.length,
     data: sentencesWithStats,
     pagination: {
       page,
@@ -113,6 +116,7 @@ exports.getMySentences = asyncHandler(async (req, res, next) => {
       .sort(sort)
       .limit(limit)
       .skip(skip)
+      .select('-reviewHistory') // Optimize by excluding large arrays
       .lean(),
     Sentence.countDocuments(filters)
   ]);
@@ -125,6 +129,7 @@ exports.getMySentences = asyncHandler(async (req, res, next) => {
 
   res.json({
     success: true,
+    count: sentencesWithStats.length,
     data: sentencesWithStats,
     pagination: {
       page,
@@ -145,10 +150,13 @@ exports.getMySentences = asyncHandler(async (req, res, next) => {
 exports.createSentence = asyncHandler(async (req, res, next) => {
   const { german, arabic } = req.body;
 
-  // Check for duplicate
+  // Normalize text for better duplicate detection
+  const normalizedGerman = german.trim().toLowerCase();
+
+  // Check for duplicate (case-insensitive)
   const existingSentence = await Sentence.findOne({
     userId: req.user._id,
-    german
+    german: { $regex: new RegExp(`^${normalizedGerman.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
   });
 
   if (existingSentence) {
@@ -157,8 +165,13 @@ exports.createSentence = asyncHandler(async (req, res, next) => {
 
   const newSentence = await Sentence.create({
     userId: req.user._id,
-    german,
-    arabic
+    german: german.trim(),
+    arabic: arabic.trim()
+  });
+
+  Logger.info('Sentence created', {
+    userId: req.user._id,
+    sentenceId: newSentence._id
   });
 
   const stats = calculateSentenceStats(newSentence.toObject());
@@ -225,6 +238,13 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
   sentence.updateReviewState(newState, quality);
   await sentence.save();
 
+  Logger.info('Sentence reviewed', {
+    userId: req.user._id,
+    sentenceId: sentence._id,
+    quality,
+    newLevel: newState.reviewLevel
+  });
+
   const stats = calculateSentenceStats(sentence.toObject());
 
   res.json({
@@ -258,19 +278,22 @@ exports.getDueSentences = asyncHandler(async (req, res) => {
     userId: req.user._id,
     nextReview: { $lte: new Date() }
   })
-    .sort({ nextReview: 1 })
+    .sort({ nextReview: 1, easeFactor: 1 }) // Prioritize harder cards
     .limit(limit)
+    .select('-reviewHistory')
     .lean();
 
   const sentencesWithStats = dueSentences.map(s => ({
     ...s,
-    stats: calculateSentenceStats(s)
+    stats: calculateSentenceStats(s),
+    isOwner: true
   }));
 
   res.json({
     success: true,
     count: sentencesWithStats.length,
-    data: sentencesWithStats
+    data: sentencesWithStats,
+    message: sentencesWithStats.length === 0 ? 'لا توجد جمل للمراجعة الآن' : undefined
   });
 });
 
@@ -306,7 +329,14 @@ exports.updateSentence = asyncHandler(async (req, res) => {
 // @access  Private (Owner only)
 // ============================================
 exports.deleteSentence = asyncHandler(async (req, res) => {
-  await Sentence.findByIdAndDelete(req.params.id);
+  const sentenceId = req.params.id;
+  
+  await Sentence.findByIdAndDelete(sentenceId);
+
+  Logger.info('Sentence deleted', {
+    userId: req.user._id,
+    sentenceId
+  });
 
   res.json({
     success: true,
@@ -368,7 +398,7 @@ exports.getStats = asyncHandler(async (req, res) => {
       userId,
       nextReview: { $lte: new Date() }
     }),
-    Sentence.find({ userId }).lean()
+    Sentence.find({ userId }).select('reviewCount correctCount').lean()
   ]);
 
   const stats = {

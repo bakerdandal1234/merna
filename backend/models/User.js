@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PASSWORD, EMAIL } = require('../config/constants');
+const config = require('../config/config');
 
 const userSchema = new mongoose.Schema(
   {
@@ -46,10 +47,30 @@ const userSchema = new mongoose.Schema(
     },
     lastLogin: {
       type: Date
+    },
+    loginAttempts: {
+      type: Number,
+      default: 0
+    },
+    lockUntil: {
+      type: Date
+    },
+    passwordChangedAt: {
+      type: Date
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+      transform: function(doc, ret) {
+        delete ret.password;
+        delete ret.verificationToken;
+        delete ret.resetPasswordToken;
+        delete ret.loginAttempts;
+        delete ret.lockUntil;
+        return ret;
+      }
+    }
   }
 );
 
@@ -57,18 +78,25 @@ const userSchema = new mongoose.Schema(
 // Indexes for Performance
 // ============================================
 userSchema.index({ email: 1, isVerified: 1 });
+userSchema.index({ verificationToken: 1 });
+userSchema.index({ resetPasswordToken: 1 });
 
 // ============================================
-// Pre-save Hook: Hash Password
+// Pre-save Hook: Hash Password & Track Changes
 // ============================================
 userSchema.pre('save', async function (next) {
+  // Track password changes
+  if (this.isModified('password') && !this.isNew) {
+    this.passwordChangedAt = new Date(Date.now() - 1000); // Subtract 1s to ensure token is valid
+  }
+
   // Only hash if password is modified
   if (!this.isModified('password')) {
     return next();
   }
 
   try {
-    const salt = await bcrypt.genSalt(12);
+    const salt = await bcrypt.genSalt(config.security.bcryptRounds);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
@@ -120,7 +148,83 @@ userSchema.methods.createResetPasswordToken = function () {
 // ============================================
 userSchema.methods.updateLastLogin = async function () {
   this.lastLogin = new Date();
+  this.loginAttempts = 0;
+  this.lockUntil = undefined;
   await this.save({ validateBeforeSave: false });
+};
+
+// ============================================
+// Instance Method: Increment Login Attempts
+// ============================================
+userSchema.methods.incrementLoginAttempts = async function () {
+  // Reset lock if expired
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    this.loginAttempts = 1;
+    this.lockUntil = undefined;
+  } else {
+    this.loginAttempts += 1;
+    
+    // Lock account after max attempts
+    if (this.loginAttempts >= config.security.maxLoginAttempts && !this.lockUntil) {
+      this.lockUntil = Date.now() + config.security.lockoutDuration;
+    }
+  }
+  
+  await this.save({ validateBeforeSave: false });
+};
+
+// ============================================
+// Virtual: Check if Account is Locked
+// ============================================
+userSchema.virtual('isLocked').get(function () {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+});
+
+// ============================================
+// Instance Method: Check if Password Changed After Token
+// ============================================
+userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
+    return JWTTimestamp < changedTimestamp;
+  }
+  return false;
+};
+
+// ============================================
+// Static Method: Find by Credentials
+// ============================================
+userSchema.statics.findByCredentials = async function (email, password) {
+  const user = await this.findOne({ email }).select('+password');
+  
+  if (!user) {
+    return { success: false, message: 'بيانات الدخول غير صحيحة' };
+  }
+
+  // Check if account is locked
+  if (user.isLocked) {
+    const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
+    return { 
+      success: false, 
+      message: `الحساب مقفل. حاول مرة أخرى بعد ${remainingTime} دقيقة`,
+      locked: true 
+    };
+  }
+
+  // Check if verified
+  if (!user.isVerified) {
+    return { success: false, message: 'يرجى تفعيل حسابك أولاً' };
+  }
+
+  // Check password
+  const isMatch = await user.comparePassword(password);
+  
+  if (!isMatch) {
+    await user.incrementLoginAttempts();
+    return { success: false, message: 'بيانات الدخول غير صحيحة' };
+  }
+
+  return { success: true, user };
 };
 
 module.exports = mongoose.model('User', userSchema);

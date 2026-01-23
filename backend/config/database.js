@@ -1,50 +1,54 @@
 // ============================================
-// Database Configuration
+// Database Configuration - Enhanced
 // ============================================
 const mongoose = require('mongoose');
+const config = require('./config');
+const { Logger } = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    const options = {
-      // Connection pool settings
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      socketTimeoutMS: 45000,
-      serverSelectionTimeoutMS: 5000,
-      
-      // Write concern
-      w: 'majority',
-      retryWrites: true,
-      
-      // Additional options
-      autoIndex: process.env.NODE_ENV === 'development',
-    };
+    const options = config.database.options;
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI, options);
+    const conn = await mongoose.connect(config.database.uri, options);
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-    console.log(`📊 Database: ${conn.connection.name}`);
+    Logger.info('MongoDB Connected', {
+      host: conn.connection.host,
+      database: conn.connection.name,
+      poolSize: options.maxPoolSize
+    });
 
-    // Event listeners
+    // Enhanced event listeners
     mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
+      Logger.error('MongoDB connection error', err);
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.warn('⚠️ MongoDB disconnected');
+      Logger.warn('MongoDB disconnected');
     });
 
-    // Graceful shutdown
-    process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      console.log('MongoDB connection closed through app termination');
-      process.exit(0);
+    mongoose.connection.on('reconnected', () => {
+      Logger.info('MongoDB reconnected successfully');
     });
+
+    // Graceful shutdown handlers moved to server.js for centralization
 
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
-    process.exit(1);
+    Logger.error('MongoDB connection failed', error);
+    throw error; // Let the caller handle the error
   }
 };
 
-module.exports = connectDB;
+// ============================================
+// Close Database Connection
+// ============================================
+const closeDB = async () => {
+  try {
+    await mongoose.connection.close();
+    Logger.info('MongoDB connection closed gracefully');
+  } catch (error) {
+    Logger.error('Error closing MongoDB connection', error);
+    throw error;
+  }
+};
+
+module.exports = { connectDB, closeDB };

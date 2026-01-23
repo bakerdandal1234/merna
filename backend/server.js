@@ -1,14 +1,26 @@
 // ============================================
-// Server Configuration - Improved & Production-Ready
+// Server Configuration - Production-Ready & Optimized
 // ============================================
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const connectDB = require('./config/database');
+const { connectDB, closeDB } = require('./config/database');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { generalLimiter } = require('./middleware/rateLimiter');
+const { Logger, requestLogger } = require('./utils/logger');
+const config = require('./config/config');
+
+// ============================================
+// Validate Configuration
+// ============================================
+try {
+  config.validate();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 // ============================================
 // Initialize Express App
@@ -17,6 +29,9 @@ const app = express();
 
 // Trust proxy for production environments (Render, Heroku, etc.)
 app.set('trust proxy', 1);
+
+// Disable X-Powered-By header for security
+app.disable('x-powered-by');
 
 // ============================================
 // Security Middleware
@@ -40,27 +55,22 @@ app.use(helmet({
 // ============================================
 // CORS Configuration
 // ============================================
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://baker12.netlify.app'
-];
-
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.) in development only
-    if (!origin && process.env.NODE_ENV === 'development') {
+    // Allow requests with no origin in development only
+    if (!origin && config.isDevelopment) {
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    if (config.cors.allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      Logger.warn('CORS blocked request', { origin });
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Set-Cookie']
 }));
@@ -77,13 +87,10 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 // ============================================
-// Request Logging (Development Only)
+// Request Logging
 // ============================================
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
-    next();
-  });
+if (config.isDevelopment) {
+  app.use(requestLogger);
 }
 
 // ============================================
@@ -96,13 +103,23 @@ const sentenceRoutes = require('./routes/sentenceRoutes');
 // Health Check Endpoint
 // ============================================
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const healthData = {
     success: true,
-    message: 'Server is running! 🚀',
+    status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+    uptime: Math.floor(process.uptime()),
+    environment: config.env,
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      unit: 'MB'
+    },
+    database: {
+      connected: require('mongoose').connection.readyState === 1
+    }
+  };
+
+  res.status(200).json(healthData);
 });
 
 // ============================================
@@ -147,23 +164,28 @@ app.use(errorHandler);
 // ============================================
 // Database Connection & Server Start
 // ============================================
-const PORT = process.env.PORT || 3000;
-
 const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
 
     // Start server
-    const server = app.listen(PORT, () => {
+    const server = app.listen(config.port, () => {
+      Logger.info('Server Started', {
+        port: config.port,
+        environment: config.env,
+        nodeVersion: process.version,
+        pid: process.pid
+      });
+
       console.log(`
   ╔════════════════════════════════════════╗
-  ║   🚀 Server Running on Port ${PORT}      ║
-  ║   🌍 Environment: ${(process.env.NODE_ENV || 'development').padEnd(17)}║
+  ║   🚀 Server Running on Port ${config.port}      ║
+  ║   🌍 Environment: ${config.env.padEnd(17)}║
   ║   🔐 Authentication: Enabled           ║
   ║   🛡️  Authorization: Active            ║
   ║   🧠 SM-2 Algorithm: Active            ║
-  ║   🔗 API: http://localhost:${PORT}/api    ║
+  ║   🔗 API: http://localhost:${config.port}/api    ║
   ╚════════════════════════════════════════╝
       `);
     });
@@ -172,16 +194,24 @@ const startServer = async () => {
     // Graceful Shutdown
     // ============================================
     const gracefulShutdown = async (signal) => {
-      console.log(`\n${signal} received. Shutting down gracefully...`);
+      Logger.info(`${signal} received - initiating graceful shutdown`);
       
       server.close(async () => {
-        console.log('HTTP server closed');
-        process.exit(0);
+        Logger.info('HTTP server closed');
+        
+        try {
+          await closeDB();
+          Logger.info('All resources cleaned up successfully');
+          process.exit(0);
+        } catch (error) {
+          Logger.error('Error during shutdown', error);
+          process.exit(1);
+        }
       });
 
       // Force shutdown after 10 seconds
       setTimeout(() => {
-        console.error('Could not close connections in time, forcefully shutting down');
+        Logger.error('Could not close connections in time, forcing shutdown');
         process.exit(1);
       }, 10000);
     };
@@ -190,7 +220,7 @@ const startServer = async () => {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    Logger.error('Failed to start server', error);
     process.exit(1);
   }
 };
@@ -199,17 +229,17 @@ const startServer = async () => {
 // Handle Unhandled Rejections & Exceptions
 // ============================================
 process.on('unhandledRejection', (err) => {
-  console.error('❌ UNHANDLED REJECTION:', err);
-  if (process.env.NODE_ENV === 'production') {
+  Logger.error('UNHANDLED REJECTION', err);
+  if (config.isProduction) {
+    Logger.error('Shutting down due to unhandled rejection');
     process.exit(1);
   }
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('❌ UNCAUGHT EXCEPTION:', err);
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  }
+  Logger.error('UNCAUGHT EXCEPTION', err);
+  Logger.error('Shutting down due to uncaught exception');
+  process.exit(1);
 });
 
 // Start the server

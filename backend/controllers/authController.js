@@ -99,27 +99,21 @@ exports.login = asyncHandler(async (req, res, next) => {
     return next(new AppError('يرجى إدخال الإيميل وكلمة المرور', HTTP_STATUS.BAD_REQUEST));
   }
 
-  // Find user and include password field
-  const user = await User.findOne({ email }).select('+password');
+  // Use static method for authentication
+  const result = await User.findByCredentials(email, password);
 
-  if (!user) {
-    return next(new AppError(ERRORS.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED));
+  if (!result.success) {
+    return next(new AppError(
+      result.message,
+      result.locked ? HTTP_STATUS.FORBIDDEN : HTTP_STATUS.UNAUTHORIZED
+    ));
   }
 
-  // Check password
-  const isPasswordMatch = await user.comparePassword(password);
-
-  if (!isPasswordMatch) {
-    return next(new AppError(ERRORS.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED));
-  }
-
-  // Check if account is verified
-  if (!user.isVerified) {
-    return next(new AppError(ERRORS.ACCOUNT_NOT_VERIFIED, HTTP_STATUS.FORBIDDEN));
-  }
+  // Update last login
+  await result.user.updateLastLogin();
 
   // Send tokens
-  sendTokenResponse(user, HTTP_STATUS.OK, res);
+  sendTokenResponse(result.user, HTTP_STATUS.OK, res);
 });
 
 // ============================================
@@ -142,6 +136,11 @@ exports.refreshToken = asyncHandler(async (req, res, next) => {
 
   if (!user || !user.isVerified) {
     return next(new AppError(ERRORS.USER_NOT_FOUND, HTTP_STATUS.UNAUTHORIZED));
+  }
+
+  // Check if password was changed after token was issued
+  if (user.changedPasswordAfter(decoded.iat)) {
+    return next(new AppError('تم تغيير كلمة المرور. يرجى تسجيل الدخول مرة أخرى', HTTP_STATUS.UNAUTHORIZED));
   }
 
   // Generate new access token
