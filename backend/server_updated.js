@@ -317,7 +317,8 @@ app.post('/api/sentences', protect, async (req, res) => {
   }
 });
 
-// POST - مراجعة الجملة بنظام SM-2 (متاح لجميع المستخدمين)
+// POST - مراجعة الجملة بنظام SM-2
+// ✅ تم إزالة checkSentenceOwnership للسماح لجميع المستخدمين بمراجعة أي جملة
 app.post('/api/sentences/:id/review', protect, async (req, res) => {
   try {
     const { quality } = req.body;
@@ -329,7 +330,15 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
       });
     }
 
-    // البحث عن الجملة بدون التحقق من الملكية
+    // التحقق من صحة الـ ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرّف الجملة غير صالح'
+      });
+    }
+
+    // البحث عن الجملة (بدون تحقق من الملكية)
     const sentence = await Sentence.findById(req.params.id);
     
     if (!sentence) {
@@ -338,6 +347,7 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
         message: 'الجملة غير موجودة'
       });
     }
+
     const intervalBefore = sentence.interval;
     const newState = updateCardState(sentence, quality);
 
@@ -365,11 +375,12 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
     await sentence.save();
 
     const stats = calculateSentenceStats(sentence);
+    const isOwner = sentence.userId && req.user._id && sentence.userId.toString() === req.user._id.toString();
     
     res.json({
       success: true,
       message: '✅ تم تحديث البطاقة بنجاح',
-      sentence: { ...sentence.toObject(), stats },
+      sentence: { ...sentence.toObject(), stats, isOwner },
       changes: {
         intervalChange: `${intervalBefore} → ${newState.interval} أيام`,
         levelChange: newState.reviewLevel,
@@ -385,19 +396,22 @@ app.post('/api/sentences/:id/review', protect, async (req, res) => {
   }
 });
 
-// GET - الجمل المستحقة للمراجعة (جميع الجمل)
+// GET - الجمل المستحقة للمراجعة
+// ✅ تم تعديل الاستعلام لجلب جميع الجمل المستحقة من كل المستخدمين
 app.get('/api/sentences/due', protect, async (req, res) => {
   try {
     const now = new Date();
     
-    // جلب جميع الجمل المستحقة بدون تصفية userId
+    // جلب جميع الجمل المستحقة للمراجعة (من جميع المستخدمين)
     const dueSentences = await Sentence.find({
       nextReview: { $lte: now }
     }).sort({ nextReview: 1 });
     
     const sentencesWithStats = dueSentences.map(s => {
       const stats = calculateSentenceStats(s);
-      return { ...s.toObject(), stats };
+      // إضافة معلومة isOwner لكل جملة
+      const isOwner = s.userId && req.user._id && s.userId.toString() === req.user._id.toString();
+      return { ...s.toObject(), stats, isOwner };
     });
     
     res.json({
@@ -414,13 +428,13 @@ app.get('/api/sentences/due', protect, async (req, res) => {
   }
 });
 
-// GET - الإحصائيات (جميع الجمل)
+// GET - الإحصائيات
 app.get('/api/stats', protect, async (req, res) => {
   try {
-    // حساب الإحصائيات لجميع الجمل
-    const total = await Sentence.countDocuments({});
+    const total = await Sentence.countDocuments({ userId: req.user._id });
     
     const levelCounts = await Sentence.aggregate([
+      { $match: { userId: req.user._id } },
       {
         $group: {
           _id: '$reviewLevel',
@@ -451,10 +465,11 @@ app.get('/api/stats', protect, async (req, res) => {
     
     const now = new Date();
     stats.due = await Sentence.countDocuments({
+      userId: req.user._id,
       nextReview: { $lte: now }
     });
     
-    const allSentences = await Sentence.find({});
+    const allSentences = await Sentence.find({ userId: req.user._id });
     const totalReviews = allSentences.reduce((sum, s) => sum + (s.reviewCount || 0), 0);
     const totalCorrect = allSentences.reduce((sum, s) => sum + (s.correctCount || 0), 0);
     
@@ -476,12 +491,11 @@ app.get('/api/stats', protect, async (req, res) => {
   }
 });
 
-// POST - إعادة تعيين البطاقات (جميع الجمل)
+// POST - إعادة تعيين البطاقات
 app.post('/api/sentences/reset', protect, async (req, res) => {
   try {
-    // إعادة تعيين جميع الجمل بدون تصفية userId
-    const result = await Sentence.updateMany(
-      {},
+    await Sentence.updateMany(
+      { userId: req.user._id },
       {
         $set: {
           interval: 0,
@@ -500,7 +514,7 @@ app.post('/api/sentences/reset', protect, async (req, res) => {
     
     res.json({
       success: true,
-      message: `✅ تم إعادة تعيين ${result.modifiedCount} جملة بنجاح`
+      message: '✅ تم إعادة تعيين جميع الجمل بنجاح'
     });
   } catch (error) {
     res.status(500).json({
@@ -623,9 +637,10 @@ app.listen(PORT, () => {
   ║   🚀 Server Running on Port ${PORT}      ║
   ║   🌍 Environment: ${process.env.NODE_ENV}          ║
   ║   🔐 Authentication: Enabled           ║
-  ║   🛡️  Authorization: Active            ║
+  ║   🛡️  Authorization: Modified          ║
   ║   🧠 SM-2 Algorithm: Active            ║
   ║   🔗 API: http://localhost:${PORT}/api    ║
+  ║   📚 Review Access: All Users          ║
   ╚════════════════════════════════════════╝
   `);
 });
