@@ -5,8 +5,7 @@ import FilterButtons from './GermanLearningApp/FilterButtons';
 import SentencesList from './GermanLearningApp/SentencesList';
 import FlashcardView from './GermanLearningApp/Flashcard/FlashcardViewNew';
 import StatsMinimal from './Statistics/StatsMinimal';
-import api from '../services/api';
-import { extractSentences, handleApiError } from '../utils/apiHelper';
+import { getMySentences, createSentence, updateSentence, deleteSentence } from '../services/sentencesApi';
 import './GermanLearningApp/styles.css';
 
 export default function GermanLearningApp() {
@@ -18,6 +17,11 @@ export default function GermanLearningApp() {
   const [editArabic, setEditArabic] = useState('');
   const [flashcardMode, setFlashcardMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     fetchSentences();
@@ -26,17 +30,28 @@ export default function GermanLearningApp() {
   const fetchSentences = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/sentences');
+      setError(null);
       
-      // ✅ استخدام helper لاستخراج الجمل (يعمل مع الشكلين)
-      const sentences = extractSentences(response);
-      setSentences(sentences);
+      // جلب جمل المستخدم فقط
+      const response = await getMySentences({
+        page: 1,
+        limit: 100, // جلب أول 100 جملة
+        sort: 'createdAt' // ترتيب حسب تاريخ الإنشاء
+      });
       
-      console.log('✅ تم جلب الجمل:', sentences.length);
-    } catch (error) {
-      const errorInfo = handleApiError(error);
-      console.error('❌ خطأ في جلب البيانات:', errorInfo.message);
-      alert(errorInfo.message);
+      if (response.success) {
+        setSentences(response.data || []);
+        
+        // التحقق من وجود صفحات إضافية
+        if (response.pagination) {
+          setHasMore(response.pagination.hasNext);
+        }
+        
+        console.log('✅ تم جلب الجمل:', response.data.length);
+      }
+    } catch (err) {
+      console.error('❌ خطأ في جلب البيانات:', err);
+      setError(err.response?.data?.message || 'حدث خطأ في تحميل الجمل');
     } finally {
       setLoading(false);
     }
@@ -50,86 +65,96 @@ export default function GermanLearningApp() {
 
     try {
       setLoading(true);
-      const response = await api.post('/sentences', { 
-        german: newGerman, 
-        arabic: newArabic 
-      });
+      setError(null);
+      
+      const response = await createSentence(newGerman.trim(), newArabic.trim());
 
-      // ✅ التحقق من النجاح
-      if (response.data.success) {
-        console.log('✅', response.data.message);
+      if (response.success) {
+        console.log('✅', response.message);
         setNewGerman('');
         setNewArabic('');
-        fetchSentences();
+        
+        // إضافة الجملة الجديدة للقائمة
+        setSentences(prev => [response.data, ...prev]);
       }
-    } catch (error) {
-      const errorInfo = handleApiError(error);
+    } catch (err) {
+      console.error('❌ خطأ في إضافة الجملة:', err);
       
-      // ✅ معالجة حالة الجملة المكررة
-      if (error.response?.data?.exists) {
+      const errorMessage = err.response?.data?.message || 'حدث خطأ في إضافة الجملة';
+      
+      if (err.response?.status === 400 && errorMessage.includes('موجودة')) {
         alert('❌ الجملة موجودة مسبقاً');
       } else {
-        alert(errorInfo.message);
+        alert(errorMessage);
       }
-      console.error('❌ خطأ في إضافة الجملة:', errorInfo);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateSentence = async (id, updates) => {
+  const updateSentenceHandler = async (id, updates) => {
     try {
       setLoading(true);
-      const response = await api.put(`/sentences/${id}`, updates);
+      setError(null);
       
-      // ✅ التحقق من النجاح
-      if (response.data.success) {
-        console.log('✅', response.data.message);
-        fetchSentences();
+      const response = await updateSentence(id, updates);
+      
+      if (response.success) {
+        console.log('✅', response.message);
+        
+        // تحديث الجملة في القائمة
+        setSentences(prev => 
+          prev.map(s => s._id === id ? { ...s, ...updates } : s)
+        );
+        
         return true;
       }
-    } catch (error) {
-      const errorInfo = handleApiError(error);
+    } catch (err) {
+      console.error('❌ خطأ في تحديث الجملة:', err);
       
-      // ✅ معالجة أخطاء Authorization
-      if (error.response?.status === 403) {
+      const errorMessage = err.response?.data?.message || 'حدث خطأ في تحديث الجملة';
+      
+      if (err.response?.status === 403) {
         alert('🚫 غير مسموح! يمكنك فقط تعديل الجمل التي أضفتها أنت');
-      } else if (error.response?.status === 404) {
+      } else if (err.response?.status === 404) {
         alert('❌ الجملة غير موجودة');
+        fetchSentences(); // إعادة تحميل القائمة
       } else {
-        alert(errorInfo.message);
+        alert(errorMessage);
       }
-      console.error('❌ خطأ في تحديث الجملة:', errorInfo);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteSentence = async (id) => {
+  const deleteSentenceHandler = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه الجملة؟')) return;
 
     try {
       setLoading(true);
-      const response = await api.delete(`/sentences/${id}`);
+      setError(null);
       
-      // ✅ التحقق من النجاح
-      if (response.data.success) {
-        console.log('✅', response.data.message);
-        fetchSentences();
-      }
-    } catch (error) {
-      const errorInfo = handleApiError(error);
+      const response = await deleteSentence(id);
       
-      // ✅ معالجة أخطاء Authorization
-      if (error.response?.status === 403) {
-        alert('🚫 غير مسموح! يمكنك فقط حذف الجمل التي أضفتها أنت');
+      if (response.success) {
+        console.log('✅', response.message);
         
-      } else if (error.response?.status === 404) {
-        alert('❌ الجملة غير موجودة');
-      } else {
-        alert(errorInfo.message);
+        // حذف الجملة من القائمة
+        setSentences(prev => prev.filter(s => s._id !== id));
       }
-      console.error('❌ خطأ في حذف الجملة:', errorInfo);
+    } catch (err) {
+      console.error('❌ خطأ في حذف الجملة:', err);
+      
+      const errorMessage = err.response?.data?.message || 'حدث خطأ في حذف الجملة';
+      
+      if (err.response?.status === 403) {
+        alert('🚫 غير مسموح! يمكنك فقط حذف الجمل التي أضفتها أنت');
+      } else if (err.response?.status === 404) {
+        alert('❌ الجملة غير موجودة');
+        fetchSentences(); // إعادة تحميل القائمة
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -140,13 +165,16 @@ export default function GermanLearningApp() {
       alert('يرجى إدخال الجملة والترجمة');
       return;
     }
-    updateSentence(editingId, { german: editGerman, arabic: editArabic });
+    updateSentenceHandler(editingId, { 
+      german: editGerman.trim(), 
+      arabic: editArabic.trim() 
+    });
     setEditingId(null);
   };
 
-  // Props for the sentence list and its items
+  // Props for the sentence list
   const sentenceListProps = {
-    sentences: sentences,
+    sentences,
     editingId,
     editGerman,
     setEditGerman,
@@ -154,8 +182,8 @@ export default function GermanLearningApp() {
     setEditArabic,
     saveEdit,
     setEditingId,
-    deleteSentence,
-    loading // ✅ تمرير حالة التحميل
+    deleteSentence: deleteSentenceHandler,
+    loading
   };
 
   return (
@@ -164,8 +192,22 @@ export default function GermanLearningApp() {
       <div className="container">
         <div className="max-width">
         
-        {/* إحصائيات مبسطة دائمة الظهور */}
-        <StatsMinimal sentences={sentences} />
+        {/* إحصائيات مبسطة من Backend */}
+        <StatsMinimal />
+
+        {/* عرض الأخطاء */}
+        {error && (
+          <div className="error-banner" style={{
+            padding: '12px 20px',
+            backgroundColor: '#fee',
+            color: '#c33',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
 
         <AddSentenceForm
           newGerman={newGerman}
@@ -173,7 +215,7 @@ export default function GermanLearningApp() {
           newArabic={newArabic}
           setNewArabic={setNewArabic}
           addSentence={addSentence}
-          loading={loading} // ✅ تمرير حالة التحميل
+          loading={loading}
         />
 
         <FilterButtons
@@ -181,14 +223,13 @@ export default function GermanLearningApp() {
           setFlashcardMode={setFlashcardMode}
         />
 
-        {loading ? (
+        {loading && !flashcardMode ? (
           <div style={{ textAlign: 'center', padding: '40px' }}>
             <div className="spinner"></div>
             <p>جاري التحميل...</p>
           </div>
         ) : flashcardMode ? (
           <FlashcardView
-            sentences={sentences}
             onUpdate={fetchSentences}
           />
         ) : (

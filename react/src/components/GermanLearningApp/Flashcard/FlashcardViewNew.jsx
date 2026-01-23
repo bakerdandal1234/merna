@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getDueSentences, getLevelDetails, getMotivationalMessage, calculateNextInterval, formatInterval, formatDate, calculateNextReviewDate } from '../../../utils/srsUtils';
-import api from '../../../services/api';
-import { handleApiError } from '../../../utils/apiHelper';
+import { 
+  getLevelDetails, 
+  getMotivationalMessage, 
+  calculateNextInterval, 
+  formatInterval, 
+  formatDate, 
+  calculateNextReviewDate 
+} from '../../../utils/srsUtils';
+import { reviewSentence, getDueSentences } from '../../../services/sentencesApi';
 import './FlashcardNew.css';
 
-export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true }) {
+export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
+  const [dueSentences, setDueSentences] = useState([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showArabic, setShowArabic] = useState(false);
   const [animation, setAnimation] = useState('');
@@ -15,97 +22,77 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
   const [correctStreak, setCorrectStreak] = useState(0);
   const [isReviewing, setIsReviewing] = useState(false);
   const [completedSession, setCompletedSession] = useState(false);
-  const [cardProgress, setCardProgress] = useState(null); // 🆕 التقدم الشخصي
-  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const cardRef = useRef(null);
 
-  // تصفية الجمل
-  const filteredSentences = React.useMemo(() => {
-    let filtered = sentences;
-    
-    if (showOnlyDue) {
-      filtered = getDueSentences(filtered);
+  // جلب الجمل المستحقة من Backend
+  useEffect(() => {
+    fetchDueSentences();
+  }, []);
+
+  const fetchDueSentences = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getDueSentences(50); // جلب 50 جملة
+      
+      if (response.success) {
+        setDueSentences(response.data || []);
+        
+        if (response.data.length === 0) {
+          setCompletedSession(true);
+        }
+      }
+    } catch (err) {
+      console.error('خطأ في جلب الجمل المستحقة:', err);
+      setError('فشل تحميل الجمل المستحقة');
+    } finally {
+      setLoading(false);
     }
-    
-    return filtered;
-  }, [sentences, showOnlyDue]);
+  };
 
+  // إعادة تعيين عند التحديث
   useEffect(() => {
-    setCurrentCardIndex(0);
-    setShowArabic(false);
-    setIsFlipped(false);
-    setAnimation('');
-    setCorrectStreak(0);
-    setCompletedSession(false);
-  }, [sentences]);
+    if (onUpdate) {
+      // يمكن إضافة logic للتحديث هنا
+    }
+  }, [onUpdate]);
 
+  // التحقق من إكمال الجلسة
   useEffect(() => {
-    // التحقق من إكمال جميع الجمل
-    if (currentCardIndex >= filteredSentences.length && filteredSentences.length > 0) {
+    if (currentCardIndex >= dueSentences.length && dueSentences.length > 0) {
       setCompletedSession(true);
     } else {
       setCompletedSession(false);
     }
-  }, [filteredSentences.length, currentCardIndex]);
+  }, [dueSentences.length, currentCardIndex]);
 
-  const currentCard = filteredSentences[currentCardIndex];
-
-  // 🔄 جلب التقدم الشخصي عند تغيير البطاقة
-  useEffect(() => {
-    const fetchProgress = async () => {
-      if (!currentCard || !currentCard._id) return;
-      
-      setLoadingProgress(true);
-      try {
-        // جلب التقدم من Backend
-        const response = await api.get(`/progress/${currentCard._id}`);
-        setCardProgress(response.data.progress);
-      } catch (error) {
-        // إذا لم يوجد تقدم → بطاقة جديدة
-        console.log('بطاقة جديدة');
-        setCardProgress({
-          interval: 0,
-          easeFactor: 2.5,
-          repetitions: 0,
-          reviewLevel: 'new'
-        });
-      } finally {
-        setLoadingProgress(false);
-      }
-    };
-    
-    fetchProgress();
-  }, [currentCard]);
+  const currentCard = dueSentences[currentCardIndex];
 
   const nextCard = useCallback(() => {
     setShowArabic(false);
     setIsFlipped(false);
     setAnimation('');
     
-    // ✅ التحقق: هل نحن في آخر جملة؟
-    if (currentCardIndex < filteredSentences.length - 1) {
-      // لا زلنا في القائمة → انتقل للتالي
+    if (currentCardIndex < dueSentences.length - 1) {
       setCurrentCardIndex(prev => prev + 1);
     } else {
-      // وصلنا لآخر جملة → تفعيل حالة الإكمال
       setCompletedSession(true);
     }
-  }, [currentCardIndex, filteredSentences.length]);
+  }, [currentCardIndex, dueSentences.length]);
 
   const prevCard = useCallback(() => {
     setShowArabic(false);
     setIsFlipped(false);
     setAnimation('');
     
-    // ✅ التحقق: هل نحن في أول جملة؟
     if (currentCardIndex > 0) {
-      // لا زلنا في القائمة → انتقل للسابق
       setCurrentCardIndex(prev => prev - 1);
     }
-    // إذا كنا في أول جملة → لا تفعل شيء
   }, [currentCardIndex]);
 
-  // دالة المراجعة الرئيسية مع نظام SM-2
+  // دالة المراجعة الرئيسية
   const handleReview = useCallback(async (quality) => {
     if (!currentCard || isReviewing) return;
 
@@ -118,6 +105,20 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
       setCorrectStreak(newStreak);
       setShowCelebration(true);
       
+      // حفظ الـ streak في localStorage
+      const lastReviewDate = localStorage.getItem('lastReviewDate');
+      const today = new Date().toDateString();
+      
+      if (lastReviewDate === today) {
+        // نفس اليوم - زيادة الـ streak
+        const currentStreak = parseInt(localStorage.getItem('reviewStreak') || '0');
+        localStorage.setItem('reviewStreak', (currentStreak + 1).toString());
+      } else {
+        // يوم جديد - بداية streak جديد
+        localStorage.setItem('reviewStreak', '1');
+        localStorage.setItem('lastReviewDate', today);
+      }
+      
       setTimeout(() => setShowCelebration(false), 2000);
     } else {
       setAnimation('shake-animation');
@@ -125,21 +126,14 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
     }
 
     try {
-      // ✅ استدعاء API باستخدام axios instance
-      const response = await api.post(`/sentences/${currentCard._id}/review`, {
-        quality
-      });
+      const response = await reviewSentence(currentCard._id, quality);
 
-      // ✅ التحقق من النجاح
-      if (response.data.success) {
-        console.log('✅ تمت المراجعة:', response.data.message);
+      if (response.success) {
+        console.log('✅ تمت المراجعة:', response.message);
         
-        // ✅ عرض معلومات التغييرات ورسالة تحفيزية
-        if (response.data.changes) {
-          console.log('📊 التغييرات:', response.data.changes);
-          
-          // تجهيز الرسالة الكاملة
-          const { nextReviewDate, intervalChange } = response.data.changes;
+        // عرض معلومات التغييرات
+        if (response.changes) {
+          const { nextReviewDate, intervalChange } = response.changes;
           const motivMsg = getMotivationalMessage(quality, quality >= 2 ? correctStreak + 1 : 0);
           
           let fullMessage = motivMsg;
@@ -158,16 +152,16 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
           onUpdate();
         }
 
-        // ✅ الانتقال للبطاقة التالية (فقط إذا لم نكن في آخر جملة)
+        // إزالة البطاقة من القائمة المحلية
         setTimeout(() => {
           setAnimation('');
           
-          // التحقق من وجود جملة تالية
-          if (currentCardIndex < filteredSentences.length - 1) {
-            nextCard();
-          } else {
-            // آخر جملة → فقط إيقاف المراجعة (سيتم تحديث القائمة وستظهر رسالة "لا توجد جمل")
-            console.log('✅ أحسنت! أنهيت جميع الجمل المستحقة');
+          // حذف البطاقة الحالية من القائمة
+          setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
+          
+          // إذا كانت هذه آخر بطاقة، عرض رسالة الإكمال
+          if (currentCardIndex >= dueSentences.length - 1) {
+            setCompletedSession(true);
           }
           
           setIsReviewing(false);
@@ -175,51 +169,40 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
       }
 
     } catch (error) {
-      const errorInfo = handleApiError(error);
-      console.error('❌ خطأ في المراجعة:', errorInfo);
+      console.error('❌ خطأ في المراجعة:', error);
       
-      // ✅ معالجة أخطاء مختلفة برسائل واضحة
       let userMessage = '';
       
       if (error.response?.status === 500) {
-        const serverMessage = error.response?.data?.message || '';
+        userMessage = '⚠️ خطأ في الخادم. سيتم تخطي هذه الجملة.';
         
-        if (serverMessage.includes('userId مفقود')) {
-          // جملة قديمة/تالفة في قاعدة البيانات
-          userMessage = '⚠️ هذه الجملة تحتوي على بيانات غير صحيحة.\n\nسيتم تخطيها تلقائياً. جرب الجملة التالية.';
-          
-          // الانتقال للبطاقة التالية تلقائياً
-          setTimeout(() => {
-            setAnimation('');
-            nextCard();
-            setIsReviewing(false);
-          }, 1500);
-        } else {
-          userMessage = '❌ خطأ في الخادم. حاول مرة أخرى.';
-        }
+        setTimeout(() => {
+          setAnimation('');
+          setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
+          setIsReviewing(false);
+        }, 1500);
       } else if (error.response?.status === 403) {
         userMessage = '🚫 غير مسموح! يمكنك فقط مراجعة الجمل التي أضفتها أنت';
       } else if (error.response?.status === 404) {
         userMessage = '❌ الجملة غير موجودة. سيتم تحديث القائمة.';
-        // تحديث القائمة
         if (onUpdate) onUpdate();
+        fetchDueSentences();
       } else if (error.response?.status === 400) {
         userMessage = '❌ التقييم غير صالح';
       } else if (error.response?.status === 401) {
         userMessage = '🔒 انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.';
       } else {
-        userMessage = errorInfo.message || '❌ حدث خطأ غير متوقع';
+        userMessage = error.response?.data?.message || '❌ حدث خطأ غير متوقع';
       }
       
-      // عرض الرسالة فقط إذا لم يكن userId مفقود (لأننا سننتقل تلقائياً)
-      if (!error.response?.data?.message?.includes('userId مفقود')) {
+      if (!error.response?.data?.message?.includes('userId')) {
         alert(userMessage);
       }
       
       setAnimation('');
       setIsReviewing(false);
     }
-  }, [currentCard, correctStreak, nextCard, onUpdate, isReviewing]);
+  }, [currentCard, correctStreak, currentCardIndex, dueSentences.length, onUpdate]);
 
   const handleFlip = useCallback(() => {
     setIsFlipped(!isFlipped);
@@ -237,7 +220,6 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
     } else if (e.key === 'ArrowRight') {
       nextCard();
     } else if (showArabic) {
-      // اختصارات لوحة المفاتيح
       if (e.key === '0') handleReview(0);
       else if (e.key === '1') handleReview(1);
       else if (e.key === '2') handleReview(2);
@@ -249,6 +231,37 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
+
+  // عرض حالة التحميل
+  if (loading) {
+    return (
+      <div className="flashcard-container">
+        <div className="flashcard-loading">
+          <div className="spinner"></div>
+          <p>جاري تحميل الجمل المستحقة...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // عرض رسالة الخطأ
+  if (error) {
+    return (
+      <div className="flashcard-container">
+        <div className="flashcard-error">
+          <div className="error-icon">❌</div>
+          <h2>{error}</h2>
+          <button 
+            className="review-btn btn-good"
+            onClick={fetchDueSentences}
+            style={{ marginTop: '20px' }}
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // عرض رسالة الإكمال
   if (completedSession || !currentCard) {
@@ -264,37 +277,33 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
           </h2>
           <p>
             {completedSession
-              ? `لقد راجعت ${filteredSentences.length} جملة بنجاح`
+              ? `لقد راجعت جمل بنجاح`
               : 'عد لاحقاً أو أضف جمل جديدة'
             }
           </p>
-          {completedSession && (
-            <div style={{ marginTop: '20px' }}>
-              <button 
-                className="review-btn btn-excellent"
-                onClick={() => {
-                  setCurrentCardIndex(0);
-                  setCompletedSession(false);
-                  setCorrectStreak(0);
-                  setShowArabic(false);
-                  setIsFlipped(false);
-                }}
-                style={{ padding: '12px 24px', fontSize: '16px' }}
-              >
-                <span className="btn-emoji">🔄</span>
-                <span className="btn-text">ابدأ من جديد</span>
-              </button>
-            </div>
-          )}
+          <div style={{ marginTop: '20px' }}>
+            <button 
+              className="review-btn btn-excellent"
+              onClick={() => {
+                fetchDueSentences();
+                setCurrentCardIndex(0);
+                setCompletedSession(false);
+                setCorrectStreak(0);
+                setShowArabic(false);
+                setIsFlipped(false);
+              }}
+              style={{ padding: '12px 24px', fontSize: '16px' }}
+            >
+              <span className="btn-emoji">🔄</span>
+              <span className="btn-text">تحديث القائمة</span>
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ✅ استخدام التقدم الشخصي لعرض المستوى
-  const levelDetails = cardProgress 
-    ? getLevelDetails(cardProgress.interval || 0) 
-    : getLevelDetails(0);
+  const levelDetails = getLevelDetails(currentCard.interval || 0);
   const stats = currentCard.stats || {};
 
   return (
@@ -302,7 +311,7 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
       {/* شريط التقدم */}
       <div className="flashcard-progress">
         <div className="progress-info">
-          <span>{currentCardIndex + 1} / {filteredSentences.length}</span>
+          <span>{currentCardIndex + 1} / {dueSentences.length}</span>
           {correctStreak > 0 && (
             <span className="streak-indicator">
               🔥 {correctStreak}
@@ -312,7 +321,7 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
         <div className="progress-bar">
           <div 
             className="progress-fill" 
-            style={{ width: `${((currentCardIndex + 1) / filteredSentences.length) * 100}%` }}
+            style={{ width: `${((currentCardIndex + 1) / dueSentences.length) * 100}%` }}
           />
         </div>
       </div>
@@ -337,19 +346,19 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
               <div className="card-stats">
                 <div className="stat-item">
                   <span className="stat-label">المراجعات</span>
-                  <span className="stat-value">{cardProgress?.reviewCount || 0}</span>
+                  <span className="stat-value">{currentCard.reviewCount || 0}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">الدقة</span>
                   <span className="stat-value">
-                    {cardProgress?.reviewCount > 0 
-                      ? `${Math.round((cardProgress.correctCount / cardProgress.reviewCount) * 100)}%`
+                    {currentCard.reviewCount > 0 
+                      ? `${Math.round((currentCard.correctCount / currentCard.reviewCount) * 100)}%`
                       : '-'}
                   </span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">الفاصل</span>
-                  <span className="stat-value">{cardProgress?.interval || 0} يوم</span>
+                  <span className="stat-value">{currentCard.interval || 0} يوم</span>
                 </div>
               </div>
             </div>
@@ -376,22 +385,13 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
         </div>
       </div>
 
-      {/* مؤشر التحميل */}
-      {showArabic && loadingProgress && (
-        <div style={{ textAlign: 'center', padding: '20px' }}>
-          <div className="spinner"></div>
-          <p>جاري تحميل التقدم...</p>
-        </div>
-      )}
-
       {/* الأزرار - 4 مستويات */}
-      {showArabic && !isReviewing && !loadingProgress && cardProgress && (() => {
-        // ✅ حساب الفترات باستخدام التقدم الشخصي
+      {showArabic && !isReviewing && (() => {
         const intervals = [
-          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 0),
-          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 1),
-          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 2),
-          calculateNextInterval(cardProgress.interval || 0, cardProgress.easeFactor || 2.5, 3)
+          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 0),
+          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 1),
+          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 2),
+          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 3)
         ];
 
         return (
@@ -457,10 +457,18 @@ export default function FlashcardView({ sentences, onUpdate, showOnlyDue = true 
 
       {/* أزرار التنقل */}
       <div className="navigation-buttons">
-        <button className="nav-btn" onClick={prevCard}>
+        <button 
+          className="nav-btn" 
+          onClick={prevCard}
+          disabled={currentCardIndex === 0}
+        >
           ← السابق
         </button>
-        <button className="nav-btn" onClick={nextCard}>
+        <button 
+          className="nav-btn" 
+          onClick={nextCard}
+          disabled={currentCardIndex >= dueSentences.length - 1}
+        >
           التالي →
         </button>
       </div>

@@ -1,125 +1,117 @@
-/**
- * 🔧 API Response Handler
- * 
- * دالة مساعدة لمعالجة استجابات API الموحدة
- * تعمل مع الشكل الجديد للاستجابات من Backend
- */
+// ============================================
+// 🔧 API Error Handler & Helper Utilities
+// ============================================
 
 /**
- * معالجة استجابة API الناجحة
- * @param {Object} response - استجابة axios
- * @returns {Object} البيانات المعالجة
- */
-export const handleApiResponse = (response) => {
-  // إذا كانت الاستجابة بالشكل الجديد {success, data}
-  if (response.data && typeof response.data.success !== 'undefined') {
-    return {
-      success: response.data.success,
-      data: response.data,
-      message: response.data.message
-    };
-  }
-  
-  // إذا كانت الاستجابة بالشكل القديم (array أو object مباشر)
-  return {
-    success: true,
-    data: response.data,
-    message: null
-  };
-};
-
-/**
- * معالجة خطأ API
- * @param {Error} error - خطأ axios
- * @returns {Object} معلومات الخطأ
+ * معالجة أخطاء API
  */
 export const handleApiError = (error) => {
-  console.error('API Error:', error);
-
   if (error.response) {
-    // الخطأ من الـ server
+    // خطأ من الخادم
     return {
-      success: false,
+      status: error.response.status,
       message: error.response.data?.message || 'حدث خطأ في الخادم',
       errors: error.response.data?.errors || null,
-      status: error.response.status
+      data: error.response.data
     };
   } else if (error.request) {
-    // الطلب تم إرساله لكن لم يتم استقبال رد
+    // لم يتم استلام رد
     return {
-      success: false,
-      message: 'فشل الاتصال بالخادم. تحقق من الإنترنت',
-      status: 0
+      status: null,
+      message: 'فشل الاتصال بالخادم. تحقق من اتصال الإنترنت',
+      errors: null,
+      data: null
     };
   } else {
-    // خطأ في إعداد الطلب
+    // خطأ آخر
     return {
-      success: false,
+      status: null,
       message: error.message || 'حدث خطأ غير متوقع',
-      status: -1
+      errors: null,
+      data: null
     };
   }
 };
 
 /**
- * استخراج البيانات من استجابة sentences
- * @param {Object} response - استجابة API
- * @returns {Array} مصفوفة الجمل
+ * استخراج الجمل من الاستجابة
  */
 export const extractSentences = (response) => {
-  const handled = handleApiResponse(response);
+  // التعامل مع كلا الشكلين:
+  // 1. { success: true, data: [...] }
+  // 2. { sentences: [...] }
   
-  // الشكل الجديد: {success, count, sentences}
-  if (handled.data.sentences) {
-    return handled.data.sentences;
+  if (response.data?.success && Array.isArray(response.data.data)) {
+    return response.data.data;
   }
   
-  // الشكل القديم: array مباشر
-  if (Array.isArray(handled.data)) {
-    return handled.data;
+  if (response.data?.success && Array.isArray(response.data.sentences)) {
+    return response.data.sentences;
   }
   
+  if (Array.isArray(response.data?.data)) {
+    return response.data.data;
+  }
+  
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  
+  console.warn('تنسيق غير متوقع للاستجابة:', response);
   return [];
 };
 
 /**
- * استخراج جملة واحدة من استجابة
- * @param {Object} response - استجابة API
- * @returns {Object} الجملة
+ * تنسيق التاريخ العربي
  */
-export const extractSentence = (response) => {
-  const handled = handleApiResponse(response);
+export const formatArabicDate = (date) => {
+  if (!date) return '-';
   
-  // الشكل الجديد: {success, message, sentence}
-  if (handled.data.sentence) {
-    return handled.data.sentence;
-  }
-  
-  // الشكل القديم: object مباشر
-  return handled.data;
+  const d = new Date(date);
+  return d.toLocaleDateString('ar-EG', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 /**
- * استخراج الإحصائيات من استجابة
- * @param {Object} response - استجابة API
- * @returns {Object} الإحصائيات
+ * التحقق من صلاحية Token
  */
-export const extractStats = (response) => {
-  const handled = handleApiResponse(response);
+export const isTokenExpired = (token) => {
+  if (!token) return true;
   
-  // الشكل الجديد: {success, stats}
-  if (handled.data.stats) {
-    return handled.data.stats;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp * 1000; // تحويل لـ milliseconds
+    return Date.now() >= exp;
+  } catch (error) {
+    return true;
   }
+};
+
+/**
+ * حساب الوقت المتبقي حتى انتهاء صلاحية Token
+ */
+export const getTokenTimeRemaining = (token) => {
+  if (!token) return 0;
   
-  // الشكل القديم: object مباشر
-  return handled.data;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp * 1000;
+    const remaining = exp - Date.now();
+    return Math.max(0, remaining);
+  } catch (error) {
+    return 0;
+  }
 };
 
 export default {
-  handleApiResponse,
   handleApiError,
   extractSentences,
-  extractSentence,
-  extractStats
+  formatArabicDate,
+  isTokenExpired,
+  getTokenTimeRemaining
 };
