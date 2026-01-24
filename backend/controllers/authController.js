@@ -34,7 +34,7 @@ exports.register = asyncHandler(async (req, res, next) => {
   try {
     await sendEmail({
       email: user.email,
-      subject: 'تفعيل حساب Merna',
+      subject: `تفعيل حساب ${user.name}`,
       html: getVerificationEmailTemplate(verificationUrl, user.name)
     });
 
