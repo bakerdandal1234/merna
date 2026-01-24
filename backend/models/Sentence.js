@@ -137,13 +137,14 @@ sentenceSchema.virtual('daysUntilReview').get(function () {
 // ============================================
 // Pre-save Middleware
 // ============================================
-sentenceSchema.pre('save', function (next) {
-  // Keep only last 100 reviews to save space
+
+sentenceSchema.pre('save', async function () {
   if (this.isModified('reviewHistory') && this.reviewHistory.length > 100) {
     this.reviewHistory = this.reviewHistory.slice(-100);
   }
-  next();
+  // لا حاجة لاستدعاء next()
 });
+
 
 // ============================================
 // Static Methods
