@@ -84,19 +84,22 @@ userSchema.index({ resetPasswordToken: 1 });
 // ============================================
 // Pre-save Hook: Hash Password & Track Changes
 // ============================================
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   // Track password changes
   if (this.isModified('password') && !this.isNew) {
     this.passwordChangedAt = new Date(Date.now() - 1000); // Subtract 1s to ensure token is valid
   }
 
   // Only hash if password is modified
-  if (this.isModified('password')) {
+  if (!this.isModified('password')) return;
+
+  try {
     const salt = await bcrypt.genSalt(config.security.bcryptRounds);
     this.password = await bcrypt.hash(this.password, salt);
+  } catch (error) {
+    // إذا حدث خطأ، ارميه ليتم التعامل معه في الكود الذي يحفظ المستخدم
+    throw error;
   }
-
-  next();
 });
 
 // ============================================
