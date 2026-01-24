@@ -91,11 +91,12 @@ userSchema.pre('save', async function (next) {
   }
 
   // Only hash if password is modified
-  if (!this.isModified('password')) {
-     const salt = await bcrypt.genSalt(config.security.bcryptRounds);
-     this.password = await bcrypt.hash(this.password, salt);
+  if (this.isModified('password')) {
+    const salt = await bcrypt.genSalt(config.security.bcryptRounds);
+    this.password = await bcrypt.hash(this.password, salt);
   }
 
+  next();
 });
 
 // ============================================
