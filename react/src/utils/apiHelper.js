@@ -36,46 +36,6 @@ export const handleApiError = (error) => {
 /**
  * استخراج الجمل من الاستجابة
  */
-export const extractSentences = (response) => {
-  // التعامل مع كلا الشكلين:
-  // 1. { success: true, data: [...] }
-  // 2. { sentences: [...] }
-  
-  if (response.data?.success && Array.isArray(response.data.data)) {
-    return response.data.data;
-  }
-  
-  if (response.data?.success && Array.isArray(response.data.sentences)) {
-    return response.data.sentences;
-  }
-  
-  if (Array.isArray(response.data?.data)) {
-    return response.data.data;
-  }
-  
-  if (Array.isArray(response.data)) {
-    return response.data;
-  }
-  
-  console.warn('تنسيق غير متوقع للاستجابة:', response);
-  return [];
-};
-
-/**
- * تنسيق التاريخ العربي
- */
-export const formatArabicDate = (date) => {
-  if (!date) return '-';
-  
-  const d = new Date(date);
-  return d.toLocaleDateString('ar-EG', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
 
 /**
  * التحقق من صلاحية Token
