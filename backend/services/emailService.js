@@ -15,7 +15,7 @@ class EmailService {
     try {
       await sendEmail({
         email: user.email,
-        subject: 'تفعيل حساب Merna',
+        subject: 'تفعيل حساب',
         html: getVerificationEmailTemplate(verificationUrl, user.name)
       });
 
