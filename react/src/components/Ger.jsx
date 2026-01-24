@@ -5,6 +5,7 @@ import FilterButtons from './GermanLearningApp/FilterButtons';
 import SentencesList from './GermanLearningApp/SentencesList';
 import FlashcardView from './GermanLearningApp/Flashcard/FlashcardViewNew';
 import StatsMinimal from './Statistics/StatsMinimal';
+import { NotificationPermission } from './Notifications';
 import { getMySentences, createSentence, updateSentence, deleteSentence } from '../services/sentencesApi';
 import './GermanLearningApp/styles.css';
 
@@ -191,6 +192,9 @@ export default function GermanLearningApp() {
       <Header />
       <div className="container">
         <div className="max-width">
+        
+        {/* 🔔 بانر طلب تفعيل الإشعارات - يظهر تلقائياً إذا لم يفعّل المستخدم */}
+        <NotificationPermission />
         
         {/* إحصائيات مبسطة من Backend */}
         <StatsMinimal />

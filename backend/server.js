@@ -98,6 +98,7 @@ if (config.isDevelopment) {
 // ============================================
 const authRoutes = require('./routes/authRoutes');
 const sentenceRoutes = require('./routes/sentenceRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // ============================================
 // Health Check Endpoint
@@ -150,6 +151,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/sentences', sentenceRoutes);
 app.use('/api/stats', sentenceRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ============================================
 // 404 Handler
@@ -168,6 +170,12 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+
+    // ============================================
+    // Start Cron Jobs for Notifications
+    // ============================================
+    const { startCronJobs } = require('./utils/cronJobs');
+    startCronJobs();
 
     // Start server
     const server = app.listen(config.port, () => {

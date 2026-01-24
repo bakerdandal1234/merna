@@ -45,6 +45,13 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user'
     },
+    // ========== حقل جديد للإشعارات ==========
+    isActive: {
+      type: Boolean,
+      default: true, // المستخدمون نشطون افتراضياً
+      index: true // فهرس للبحث السريع
+    },
+    // =====================================
     lastLogin: {
       type: Date
     },
