@@ -42,8 +42,8 @@ const sendTokenResponse = (user, statusCode, res) => {
     // Cookie options
     const cookieOptions = {
       httpOnly: true, // Prevents JavaScript access (XSS protection)
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: true, // Ensures cookie is sent over HTTPS
+      sameSite: 'none', // Allows cross-site requests
       maxAge: JWT.COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
       path: '/'
     };
