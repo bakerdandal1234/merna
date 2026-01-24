@@ -43,17 +43,21 @@ export const AuthProvider = ({ children }) => {
 
   // تسجيل مستخدم جديد
   const register = async (userData) => {
-    try {
-      setError(null);
-      const { data } = await api.post('/auth/register', userData);
-      return { success: true, message: data.message };
-    } catch (error) {
-      console.log('Registration error:', error);
-      const message = error.response?.data?.errors?.message || error.response?.data?.message || 'حدث خطأ في التسجيل';
-      setError(message);
-      return { success: false, message };
-    }
-  };
+  try {
+    const { data } = await api.post('/auth/register', userData);
+    return { success: true, message: data.message };
+  } catch (error) {
+    // 1. استخراج المصفوفة بشكل صحيح
+    const backendErrors = error.response?.data?.errors || error.response?.data?.message;
+    // 2. تحويل المصفوفة إلى كائن يحتوي على جميع الأخطاء (حقل عام)
+    return { 
+      success: false, 
+      errors: Array.isArray(backendErrors) ? backendErrors : [backendErrors]
+    };
+  }
+};
+
+  
 
   // تفعيل الحساب
   const verifyEmail = async (token) => {

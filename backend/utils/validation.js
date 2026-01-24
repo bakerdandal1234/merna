@@ -11,13 +11,11 @@ const validateRequest = (req, res, next) => {
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'خطأ في التحقق من البيانات',
-      errors: errors.array().map(err => ({
-        field: err.path,
-        message: err.msg
-      }))
+    const errorMessages = errors.array().map(error => error.msg);
+    
+    return res.status(400).json({ 
+      success: false, 
+      errors: errorMessages // مثال: ["الاسم مطلوب", "كلمة المرور قصيرة"]
     });
   }
   
@@ -38,28 +36,17 @@ const emailValidation = [
 ];
 
 // Password validation
-// const passwordValidation = [
-//   body('password')
-//     .notEmpty().withMessage('كلمة المرور مطلوبة')
-//     .isLength({ min: PASSWORD.MIN_LENGTH }).withMessage(`كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`)
-//     .matches(PASSWORD.REGEX).withMessage(PASSWORD.ERROR_MESSAGE)
-// ];
-
 const passwordValidation = [
-  body('password')
+ body('password')
     .notEmpty().withMessage('كلمة المرور مطلوبة')
     .isLength({ min: PASSWORD.MIN_LENGTH })
-      .withMessage(`كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`)
-    .custom((value) => {
-      if (!/[A-Z]/.test(value)) {
-        return Promise.reject('يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل');
-      }
-      if (!/[@#$%^&*]/.test(value)) {
-        return Promise.reject('يجب أن تحتوي كلمة المرور على رمز خاص مثل @ أو # أو $');
-      }
-      return true; // كل الشروط مستوفاة
-    })
+    .withMessage(`كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`)
+    .matches(/[A-Z]/).withMessage('يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل')
+    .matches(/[0-9]/).withMessage('يجب أن تحتوي كلمة المرور على رقم واحد على الأقل')
+    .matches(/[@#$%^&*]/).withMessage('يجب أن تحتوي كلمة المرور على رمز خاص (@, #, $, ...)')
 ];
+
+
 
 
 // Name validation

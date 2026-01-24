@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 const Register = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -74,7 +74,25 @@ const Register = () => {
         navigate('/login');
       }, 3000);
     } else {
-      setErrors({ submit: result.message });
+      // معالجة الأخطاء من السيرفر وإظهارها تحت الحقول المناسبة
+      if (Array.isArray(result.errors)) {
+        const newErrors = {};
+        result.errors.forEach(error => {
+          const errorLower = error.toLowerCase();
+          // التحقق من نوع الخطأ وإضافته للحقل المناسب
+          if (errorLower.includes('email') || errorLower.includes('بريد') || errorLower.includes('إيميل')) {
+            newErrors.email = error;
+          } else if (errorLower.includes('name') || errorLower.includes('اسم')) {
+            newErrors.name = error;
+          } else if (errorLower.includes('password') || errorLower.includes('كلمة')) {
+            newErrors.password = error;
+          } else {
+            // إذا لم نستطع تحديد الحقل، نضع الخطأ في حقل عام
+            newErrors.general = error;
+          }
+        });
+        setErrors(prev => ({ ...prev, ...newErrors }));
+      }
     }
   };
 
@@ -87,7 +105,11 @@ const Register = () => {
           <div style={styles.successAlert}>{successMessage}</div>
         )}
 
-        {errors.submit && <div style={styles.errorAlert}>{errors.submit}</div>}
+        {errors.general && (
+          <div style={styles.errorAlert}>
+            {errors.general}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.formGroup}>
@@ -106,7 +128,7 @@ const Register = () => {
           <div style={styles.formGroup}>
             <label style={styles.label}>البريد الإلكتروني</label>
             <input
-              type="email"
+              type="text"
               name="email"
               value={formData.email}
               onChange={handleChange}

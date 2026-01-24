@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL =  'https://merna-ugyu.onrender.com/api';
+const API_URL =  'http://localhost:3000/api';
 
 // ✅ قائمة المسارات العامة (لا تحتاج Token)
 const authFreePaths = [
