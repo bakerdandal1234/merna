@@ -6,7 +6,7 @@ import ForgotPassword from './components/Auth/ForgotPassword';
 import ResetPassword from './components/Auth/ResetPassword';
 import VerifyEmail from './components/Auth/VerifyEmail';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import GermanLearningApp from './components/Ger';
+import Dashboard from './components/Dashboard';
 
 function App() {
   return (
@@ -22,16 +22,17 @@ function App() {
 
           {/* Protected Routes */}
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
-                <GermanLearningApp />
+                <Dashboard />
               </ProtectedRoute>
             }
           />
 
           {/* Default Route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

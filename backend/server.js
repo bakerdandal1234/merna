@@ -1,4 +1,5 @@
 // ============================================
+// MERN Authentication Starter Template
 // Server Configuration - Production-Ready & Optimized
 // ============================================
 require('dotenv').config();
@@ -97,8 +98,6 @@ if (config.isDevelopment) {
 // Import Routes
 // ============================================
 const authRoutes = require('./routes/authRoutes');
-const sentenceRoutes = require('./routes/sentenceRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
 
 // ============================================
 // Health Check Endpoint
@@ -129,12 +128,10 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🎓 مرحبًا بك في API لتعلم اللغة الألمانية مع نظام SM-2!',
+    message: '🚀 Welcome to MERN Authentication Starter Template',
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
-      sentences: '/api/sentences',
-      stats: '/api/stats',
       health: '/health'
     }
   });
@@ -146,12 +143,9 @@ app.get('/', (req, res) => {
 // app.use('/api', generalLimiter);
 
 // ============================================
-// Mount Routes
+// Mount Routes - Authentication Only
 // ============================================
 app.use('/api/auth', authRoutes);
-app.use('/api/sentences', sentenceRoutes);
-app.use('/api/stats', sentenceRoutes);
-app.use('/api/notifications', notificationRoutes);
 
 // ============================================
 // 404 Handler
@@ -171,12 +165,6 @@ const startServer = async () => {
     // Connect to MongoDB
     await connectDB();
 
-    // ============================================
-    // Start Cron Jobs for Notifications
-    // ============================================
-    const { startCronJobs } = require('./utils/cronJobs');
-    startCronJobs();
-
     // Start server
     const server = app.listen(config.port, () => {
       Logger.info('Server Started', {
@@ -192,7 +180,6 @@ const startServer = async () => {
   ║   🌍 Environment: ${config.env.padEnd(17)}║
   ║   🔐 Authentication: Enabled           ║
   ║   🛡️  Authorization: Active            ║
-  ║   🧠 SM-2 Algorithm: Active            ║
   ║   🔗 API: http://localhost:${config.port}/api    ║
   ╚════════════════════════════════════════╝
       `);
