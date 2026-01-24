@@ -486,9 +486,18 @@ exports.getStats = asyncHandler(async (req, res) => {
     }
   });
 
-  stats.masteryPercentage = total > 0
-    ? (((stats.excellent + stats.mastered) / total) * 100).toFixed(1)
+  // حساب نسبة التعلم النشط: جميع الجمل التي خرجت من مرحلة "new"
+  // أي جملة راجعتها مرة واحدة على الأقل بنجاح (interval >= 1)
+  const activeLearning = (stats.learning || 0) + (stats.hard || 0) + 
+                         (stats.good || 0) + (stats.excellent || 0) + 
+                         (stats.mastered || 0);
+  
+  stats.progressPercentage = total > 0
+    ? ((activeLearning / total) * 100).toFixed(1)
     : 0;
+  
+  // احتفظ بـ masteryPercentage للتوافق مع Frontend القديم
+  stats.masteryPercentage = stats.progressPercentage;
 
   stats.due = dueCount;
 

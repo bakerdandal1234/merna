@@ -42,13 +42,13 @@ export default function StatsDashboard({ sentences, onStartReview }) {
           highlight={stats.due > 0}
         />
 
-        {/* نسبة الإتقان */}
+        {/* نسبة التعلم النشط */}
         <StatCard
           icon={<TrendingUp size={32} />}
-          title="نسبة الإتقان"
+          title="التعلم النشط"
           value={`${stats.masteryPercentage}%`}
           color="#10b981"
-          subtitle="من إجمالي الجمل"
+          subtitle="من الجمل قيد المراجعة"
         />
 
         {/* الـ Streak */}

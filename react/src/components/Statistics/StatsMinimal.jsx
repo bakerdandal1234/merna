@@ -91,14 +91,14 @@ export default function StatsMinimal() {
         </div>
       </div>
 
-      {/* نسبة الإتقان */}
+      {/* نسبة التعلم النشط */}
       <div className="stat-card mastery">
         <div className="stat-icon">
           <TrendingUp size={24} />
         </div>
         <div className="stat-content">
           <div className="stat-value">{stats.masteryPercentage || 0}%</div>
-          <div className="stat-label">نسبة الإتقان</div>
+          <div className="stat-label">التعلم النشط</div>
         </div>
       </div>
 
