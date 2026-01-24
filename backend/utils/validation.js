@@ -38,12 +38,29 @@ const emailValidation = [
 ];
 
 // Password validation
+// const passwordValidation = [
+//   body('password')
+//     .notEmpty().withMessage('كلمة المرور مطلوبة')
+//     .isLength({ min: PASSWORD.MIN_LENGTH }).withMessage(`كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`)
+//     .matches(PASSWORD.REGEX).withMessage(PASSWORD.ERROR_MESSAGE)
+// ];
+
 const passwordValidation = [
   body('password')
     .notEmpty().withMessage('كلمة المرور مطلوبة')
-    .isLength({ min: PASSWORD.MIN_LENGTH }).withMessage(`كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`)
-    .matches(PASSWORD.REGEX).withMessage(PASSWORD.ERROR_MESSAGE)
+    .isLength({ min: PASSWORD.MIN_LENGTH })
+      .withMessage(`كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`)
+    .custom((value) => {
+      if (!/[A-Z]/.test(value)) {
+        return Promise.reject('يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل');
+      }
+      if (!/[@#$%^&*]/.test(value)) {
+        return Promise.reject('يجب أن تحتوي كلمة المرور على رمز خاص مثل @ أو # أو $');
+      }
+      return true; // كل الشروط مستوفاة
+    })
 ];
+
 
 // Name validation
 const nameValidation = [
