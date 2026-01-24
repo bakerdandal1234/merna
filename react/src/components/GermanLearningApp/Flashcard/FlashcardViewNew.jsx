@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  getLevelDetails, 
-  getMotivationalMessage, 
-  calculateNextInterval, 
-  formatInterval, 
-  formatDate, 
-  calculateNextReviewDate 
+  getLevelDetails
 } from '../../../utils/srsUtils';
 import { reviewSentence, getDueSentences } from '../../../services/sentencesApi';
+import ReviewResultModal from './ReviewResultModal';
 import './FlashcardNew.css';
 
 export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
@@ -16,14 +12,16 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
   const [showArabic, setShowArabic] = useState(false);
   const [animation, setAnimation] = useState('');
   const [isFlipped, setIsFlipped] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [showMotivation, setShowMotivation] = useState(false);
-  const [motivationMessage, setMotivationMessage] = useState('');
   const [correctStreak, setCorrectStreak] = useState(0);
   const [isReviewing, setIsReviewing] = useState(false);
   const [completedSession, setCompletedSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [sm2Result, setSm2Result] = useState(null);
+  
   const cardRef = useRef(null);
 
   // جلب الجمل المستحقة من Backend
@@ -35,7 +33,7 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await getDueSentences(50); // جلب 50 جملة
+      const response = await getDueSentences(50);
       
       if (response.success) {
         setDueSentences(response.data || []);
@@ -52,14 +50,12 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     }
   };
 
-  // إعادة تعيين عند التحديث
   useEffect(() => {
     if (onUpdate) {
       // يمكن إضافة logic للتحديث هنا
     }
   }, [onUpdate]);
 
-  // التحقق من إكمال الجلسة
   useEffect(() => {
     if (currentCardIndex >= dueSentences.length && dueSentences.length > 0) {
       setCompletedSession(true);
@@ -92,7 +88,24 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     }
   }, [currentCardIndex]);
 
-  // دالة المراجعة الرئيسية
+  // دالة إغلاق الـ Modal والانتقال للبطاقة التالية
+  const handleModalClose = () => {
+    setShowModal(false);
+    setSm2Result(null);
+    setAnimation('');
+    
+    // إزالة البطاقة من القائمة
+    setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
+    
+    // التحقق من إكمال الجلسة
+    if (currentCardIndex >= dueSentences.length - 1) {
+      setCompletedSession(true);
+    }
+    
+    setIsReviewing(false);
+  };
+
+  // دالة المراجعة الرئيسية - محدثة لاستخدام بيانات SM-2 من Backend
   const handleReview = useCallback(async (quality) => {
     if (!currentCard || isReviewing) return;
 
@@ -103,69 +116,39 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
       setAnimation('correct-animation');
       const newStreak = correctStreak + 1;
       setCorrectStreak(newStreak);
-      setShowCelebration(true);
       
       // حفظ الـ streak في localStorage
       const lastReviewDate = localStorage.getItem('lastReviewDate');
       const today = new Date().toDateString();
       
       if (lastReviewDate === today) {
-        // نفس اليوم - زيادة الـ streak
         const currentStreak = parseInt(localStorage.getItem('reviewStreak') || '0');
         localStorage.setItem('reviewStreak', (currentStreak + 1).toString());
       } else {
-        // يوم جديد - بداية streak جديد
         localStorage.setItem('reviewStreak', '1');
         localStorage.setItem('lastReviewDate', today);
       }
-      
-      setTimeout(() => setShowCelebration(false), 2000);
     } else {
       setAnimation('shake-animation');
       setCorrectStreak(0);
     }
 
     try {
+      // إرسال المراجعة للـ Backend
       const response = await reviewSentence(currentCard._id, quality);
 
-      if (response.success) {
+      if (response.success && response.sm2Result) {
         console.log('✅ تمت المراجعة:', response.message);
+        console.log('📊 نتائج SM-2:', response.sm2Result);
         
-        // عرض معلومات التغييرات
-        if (response.changes) {
-          const { nextReviewDate, intervalChange } = response.changes;
-          const motivMsg = getMotivationalMessage(quality, quality >= 2 ? correctStreak + 1 : 0);
-          
-          let fullMessage = motivMsg;
-          if (nextReviewDate && intervalChange) {
-            const nextDate = formatDate(new Date(nextReviewDate));
-            fullMessage = `${motivMsg}\n\n⏰ ${nextDate}\n📊 ${intervalChange}`;
-          }
-          
-          setMotivationMessage(fullMessage);
-          setShowMotivation(true);
-          setTimeout(() => setShowMotivation(false), 4000);
-        }
+        // عرض الـ Modal بنتائج SM-2 الحقيقية من Backend
+        setSm2Result(response.sm2Result);
+        setShowModal(true);
         
         // تحديث البيانات
         if (onUpdate) {
           onUpdate();
         }
-
-        // إزالة البطاقة من القائمة المحلية
-        setTimeout(() => {
-          setAnimation('');
-          
-          // حذف البطاقة الحالية من القائمة
-          setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
-          
-          // إذا كانت هذه آخر بطاقة، عرض رسالة الإكمال
-          if (currentCardIndex >= dueSentences.length - 1) {
-            setCompletedSession(true);
-          }
-          
-          setIsReviewing(false);
-        }, 1000);
       }
 
     } catch (error) {
@@ -210,7 +193,7 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
   }, [isFlipped, showArabic]);
 
   const handleKeyPress = useCallback((e) => {
-    if (isReviewing) return;
+    if (isReviewing || showModal) return;
 
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
@@ -225,14 +208,13 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
       else if (e.key === '2') handleReview(2);
       else if (e.key === '3') handleReview(3);
     }
-  }, [isReviewing, showArabic, handleFlip, handleReview, nextCard, prevCard]);
+  }, [isReviewing, showModal, showArabic, handleFlip, handleReview, nextCard, prevCard]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  // عرض حالة التحميل
   if (loading) {
     return (
       <div className="flashcard-container">
@@ -244,7 +226,6 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     );
   }
 
-  // عرض رسالة الخطأ
   if (error) {
     return (
       <div className="flashcard-container">
@@ -263,7 +244,6 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     );
   }
 
-  // عرض رسالة الإكمال
   if (completedSession || !currentCard) {
     return (
       <div className="flashcard-container">
@@ -304,7 +284,6 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
   }
 
   const levelDetails = getLevelDetails(currentCard.interval || 0);
-  const stats = currentCard.stats || {};
 
   return (
     <div className="flashcard-container">
@@ -385,75 +364,58 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
         </div>
       </div>
 
-      {/* الأزرار - 4 مستويات */}
-      {showArabic && !isReviewing && (() => {
-        const intervals = [
-          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 0),
-          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 1),
-          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 2),
-          calculateNextInterval(currentCard.interval || 0, currentCard.easeFactor || 2.5, 3)
-        ];
-
-        return (
-          <div className="review-buttons">
-            <button 
-              className="review-btn btn-wrong"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleReview(0);
-              }}
-              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[0]))}`}
-            >
-              <span className="btn-emoji">❌</span>
-              <span className="btn-text">Again</span>
-              <span className="btn-interval">{formatInterval(intervals[0])}</span>
-              <span className="btn-shortcut">0</span>
-            </button>
-            
-            <button 
-              className="review-btn btn-hard"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleReview(1);
-              }}
-              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[1]))}`}
-            >
-              <span className="btn-emoji">😅</span>
-              <span className="btn-text">Hard</span>
-              <span className="btn-interval">{formatInterval(intervals[1])}</span>
-              <span className="btn-shortcut">1</span>
-            </button>
-            
-            <button 
-              className="review-btn btn-good"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleReview(2);
-              }}
-              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[2]))}`}
-            >
-              <span className="btn-emoji">👍</span>
-              <span className="btn-text">Good</span>
-              <span className="btn-interval">{formatInterval(intervals[2])}</span>
-              <span className="btn-shortcut">2</span>
-            </button>
-            
-            <button 
-              className="review-btn btn-excellent"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleReview(3);
-              }}
-              title={`المراجعة القادمة: ${formatDate(calculateNextReviewDate(intervals[3]))}`}
-            >
-              <span className="btn-emoji">⭐</span>
-              <span className="btn-text">Excellent</span>
-              <span className="btn-interval">{formatInterval(intervals[3])}</span>
-              <span className="btn-shortcut">3</span>
-            </button>
-          </div>
-        );
-      })()}
+      {/* أزرار المراجعة - 4 مستويات */}
+      {showArabic && !isReviewing && (
+        <div className="review-buttons">
+          <button 
+            className="review-btn btn-wrong"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReview(0);
+            }}
+          >
+            <span className="btn-emoji">❌</span>
+            <span className="btn-text">Again</span>
+            <span className="btn-shortcut">0</span>
+          </button>
+          
+          <button 
+            className="review-btn btn-hard"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReview(1);
+            }}
+          >
+            <span className="btn-emoji">😅</span>
+            <span className="btn-text">Hard</span>
+            <span className="btn-shortcut">1</span>
+          </button>
+          
+          <button 
+            className="review-btn btn-good"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReview(2);
+            }}
+          >
+            <span className="btn-emoji">👍</span>
+            <span className="btn-text">Good</span>
+            <span className="btn-shortcut">2</span>
+          </button>
+          
+          <button 
+            className="review-btn btn-excellent"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReview(3);
+            }}
+          >
+            <span className="btn-emoji">⭐</span>
+            <span className="btn-text">Excellent</span>
+            <span className="btn-shortcut">3</span>
+          </button>
+        </div>
+      )}
 
       {/* أزرار التنقل */}
       <div className="navigation-buttons">
@@ -473,21 +435,13 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
         </button>
       </div>
 
-      {/* رسالة تحفيزية */}
-      {showMotivation && (
-        <div className="motivation-overlay">
-          <div className="motivation-message">
-            {motivationMessage}
-          </div>
-        </div>
-      )}
-
-      {/* احتفال */}
-      {showCelebration && (
-        <div className="celebration-overlay">
-          <div className="celebration-emoji">🎉</div>
-        </div>
-      )}
+      {/* Modal لعرض نتائج SM-2 */}
+      <ReviewResultModal
+        isOpen={showModal}
+        onClose={handleModalClose}
+        sm2Result={sm2Result}
+        autoCloseDelay={3000}
+      />
     </div>
   );
 }

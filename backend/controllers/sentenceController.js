@@ -58,6 +58,43 @@ const getSortCriteria = (sortParam) => {
 };
 
 // ============================================
+// Helper: Format interval for display
+// ============================================
+const formatInterval = (interval) => {
+  if (interval === 0 || interval < 0.01) {
+    return { value: 10, unit: 'minutes' };
+  }
+  
+  if (interval < 1) {
+    const minutes = Math.round(interval * 24 * 60);
+    if (minutes < 60) {
+      return { value: minutes, unit: 'minutes' };
+    }
+    const hours = Math.round(minutes / 60);
+    return { value: hours, unit: 'hours' };
+  }
+  
+  if (interval === 1) {
+    return { value: 1, unit: 'day' };
+  }
+  
+  return { value: Math.round(interval), unit: 'days' };
+};
+
+// ============================================
+// Helper: Get quality label
+// ============================================
+const getQualityLabel = (quality) => {
+  const labels = {
+    0: 'Again',
+    1: 'Hard', 
+    2: 'Good',
+    3: 'Excellent'
+  };
+  return labels[quality] || 'Unknown';
+};
+
+// ============================================
 // @desc    جلب جميع الجمل مع Pagination
 // @route   GET /api/sentences
 // @access  Private
@@ -231,6 +268,12 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
     sentence = userSentence;
   }
 
+  // Store previous state before update
+  const previousInterval = sentence.interval || 0;
+  const previousEaseFactor = sentence.easeFactor || 2.5;
+  const previousRepetitions = sentence.repetitions || 0;
+  const previousLevel = sentence.reviewLevel || 'new';
+
   // Apply SM-2 algorithm
   const newState = updateCardState(sentence, quality);
 
@@ -247,6 +290,10 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
 
   const stats = calculateSentenceStats(sentence.toObject());
 
+  // Format intervals for display
+  const previousFormatted = formatInterval(previousInterval);
+  const newFormatted = formatInterval(newState.interval);
+
   res.json({
     success: true,
     message: wasCreated
@@ -257,10 +304,32 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
       stats,
       isOwner: isOwner || wasCreated
     },
+    sm2Result: {
+      // Full SM-2 calculation results
+      interval: newState.interval,
+      intervalFormatted: newFormatted,
+      nextReview: newState.nextReview,
+      nextReviewDate: newState.nextReview.toISOString(),
+      easeFactor: newState.easeFactor,
+      repetitions: newState.repetitions,
+      reviewLevel: newState.reviewLevel,
+      quality: quality,
+      qualityLabel: getQualityLabel(quality),
+      
+      // Previous state for comparison
+      previousState: {
+        interval: previousInterval,
+        intervalFormatted: previousFormatted,
+        easeFactor: previousEaseFactor,
+        repetitions: previousRepetitions,
+        reviewLevel: previousLevel
+      }
+    },
     changes: {
-      intervalChange: `${sentence.reviewHistory[sentence.reviewHistory.length - 1]?.intervalBefore || 0} → ${newState.interval} أيام`,
-      levelChange: newState.reviewLevel,
-      nextReviewDate: newState.nextReview.toLocaleDateString('ar-EG')
+      intervalChange: `${previousFormatted.value} ${previousFormatted.unit} → ${newFormatted.value} ${newFormatted.unit}`,
+      levelChange: `${previousLevel} → ${newState.reviewLevel}`,
+      nextReviewDate: newState.nextReview.toLocaleDateString('ar-EG'),
+      nextReviewTime: newState.nextReview.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
     },
     wasCreated
   });
