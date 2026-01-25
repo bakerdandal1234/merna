@@ -34,7 +34,7 @@ exports.register = asyncHandler(async (req, res, next) => {
   try {
     await sendEmail({
       email: user.email,
-      subject: 'تفعيل حساب Merna',
+      subject: `تفعيل حساب ${user.name}`,
       html: getVerificationEmailTemplate(verificationUrl, user.name)
     });
 
@@ -200,7 +200,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   try {
     await sendEmail({
       email: user.email,
-      subject: 'إعادة تعيين كلمة المرور - Merna',
+      subject: `إعادة تعيين كلمة المرور - ${user.name}`,
       html: getResetPasswordEmailTemplate(resetUrl, user.name)
     });
 
