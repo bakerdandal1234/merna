@@ -70,8 +70,6 @@ export const getTokenTimeRemaining = (token) => {
 
 export default {
   handleApiError,
-  extractSentences,
-  formatArabicDate,
   isTokenExpired,
   getTokenTimeRemaining
 };
