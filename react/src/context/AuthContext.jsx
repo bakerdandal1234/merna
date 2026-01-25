@@ -47,6 +47,14 @@ export const AuthProvider = ({ children }) => {
     const { data } = await api.post('/auth/register', userData);
     return { success: true, message: data.message };
   } catch (error) {
+    console.error('Register error:', error);
+    if (!error.response) {
+      return {
+        success: false,
+        errors: [error.message || 'Network error'],
+      };
+    }
+    // 🔴 عرض ردّ الـ backend فقط
     // 1. استخراج المصفوفة بشكل صحيح
     const backendErrors = error.response?.data?.errors || error.response?.data?.message;
     // 2. تحويل المصفوفة إلى كائن يحتوي على جميع الأخطاء (حقل عام)
@@ -66,6 +74,7 @@ export const AuthProvider = ({ children }) => {
       const { data } = await api.get(`/auth/verify-email/${token}`);
       return { success: true, message: data.message };
     } catch (error) {
+      
       const message = error.response?.data?.message || 'حدث خطأ في التفعيل';
       setError(message);
       return { success: false, message };
@@ -84,6 +93,13 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
+      console.error('Login error:', error);
+      if (!error.response) {
+      return {
+        success: false,
+        message: [error.message || 'Network error'],
+      };
+    }
       const message = error.response?.data?.message || 'حدث خطأ في تسجيل الدخول';
       setError(message);
       return { success: false, message };
