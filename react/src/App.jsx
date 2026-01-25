@@ -6,8 +6,7 @@ import ForgotPassword from './components/Auth/ForgotPassword';
 import ResetPassword from './components/Auth/ResetPassword';
 import VerifyEmail from './components/Auth/VerifyEmail';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import Dashboard from './components/Dashboard';
-
+import Home from './pages/Home';
 function App() {
   return (
     <BrowserRouter>
@@ -19,20 +18,18 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/verify-email/:token" element={<VerifyEmail />} />
-
+          
           {/* Protected Routes */}
           <Route
-            path="/dashboard"
+            path="/"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <Home />
               </ProtectedRoute>
             }
           />
-
           {/* Default Route */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
