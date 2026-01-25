@@ -1,5 +1,5 @@
 // ============================================
-// SM-2 Algorithm Controller (Improved & Optimized)
+// SM-2 Algorithm Controller (FIXED VERSION)
 // ============================================
 const { SM2, REVIEW_LEVELS } = require('./config/constants');
 
@@ -19,7 +19,7 @@ const addMinutes = (date, minutes) => {
 };
 
 // ============================================
-// SM-2 Algorithm Core Implementation
+// SM-2 Algorithm Core Implementation (FIXED)
 // ============================================
 const updateCardState = (sentence, quality, now = new Date()) => {
   // Validate quality input
@@ -37,52 +37,69 @@ const updateCardState = (sentence, quality, now = new Date()) => {
   let newReps = currentReps;
 
   // ============================================
-  // Case 1: Failed Review (quality 0 or 1)
+  // 🔴 QUALITY 0: Again (إعادة كاملة)
   // ============================================
-  if (quality === 0 || quality === 1) {
-    newReps = 0;
-    newInterval = SM2.MIN_INTERVAL_DAYS;
-
-    // Adjust ease factor
-    if (quality === 0) {
-      newEase = Math.max(SM2.MIN_EASE_FACTOR, currentEase - 0.2);
-    } else {
-      newEase = Math.max(SM2.MIN_EASE_FACTOR, currentEase - 0.15);
-    }
-
-    // Set next review time
-    if (quality === 0) {
-      nextReview = addMinutes(now, SM2.IMMEDIATE_REVIEW_MINUTES);
-    } else {
-      nextReview = addDays(now, 1);
-    }
+  if (quality === 0) {
+    newReps = 0;  // إعادة تعيين التكرارات
+    newInterval = 0;  // صفر = نفس اليوم (10 دقائق)
+    newEase = Math.max(SM2.MIN_EASE_FACTOR, currentEase - 0.2);  // تقليل السهولة
+    nextReview = addMinutes(now, SM2.IMMEDIATE_REVIEW_MINUTES);  // 10 دقائق
   }
+  
   // ============================================
-  // Case 2: Successful Review (quality 2 or 3)
+  // 🟡 QUALITY 1: Hard (صعب - فاصل قصير)
   // ============================================
-  else {
-    // Calculate new interval
+  else if (quality === 1) {
+    newReps = 0;  // إعادة تعيين التكرارات
+    newInterval = 1;  // يوم واحد
+    newEase = Math.max(SM2.MIN_EASE_FACTOR, currentEase - 0.15);  // تقليل بسيط
+    nextReview = addDays(now, 1);  // بعد يوم واحد
+  }
+  
+  // ============================================
+  // 🟢 QUALITY 2: Good (جيد - فاصل عادي)
+  // ============================================
+  else if (quality === 2) {
+    // حساب الفاصل حسب SM-2 القياسي
     if (currentReps === 0) {
-      newInterval = 1;
+      newInterval = 1;  // أول مراجعة = 1 يوم
     } else if (currentReps === 1) {
-      newInterval = 3;
+      newInterval = 3;  // ثاني مراجعة = 3 أيام
     } else {
-      newInterval = Math.round(currentInterval * currentEase);
+      newInterval = Math.round(currentInterval * currentEase);  // SM-2 formula
     }
-
+    
     newReps = currentReps + 1;
-
-    // Adjust ease factor based on quality
-    if (quality === 2) {
-      newEase = currentEase + 0.05;
-    } else if (quality === 3) {
-      newEase = currentEase + 0.15;
-    }
-
-    // Apply interval constraints
+    newEase = currentEase + 0.0;  // لا تغيير في السهولة (أو +0.05 للتحسن البسيط)
+    
+    // تطبيق الحدود
     newInterval = Math.max(SM2.MIN_INTERVAL_DAYS, newInterval);
     newInterval = Math.min(SM2.MAX_INTERVAL_DAYS, newInterval);
-
+    
+    nextReview = addDays(now, newInterval);
+  }
+  
+  // ============================================
+  // 🔵 QUALITY 3: Excellent (ممتاز - فاصل طويل)
+  // ============================================
+  else if (quality === 3) {
+    // حساب الفاصل مع مضاعف إضافي
+    if (currentReps === 0) {
+      newInterval = 3;  // أول مراجعة = 3 أيام (أطول من Good)
+    } else if (currentReps === 1) {
+      newInterval = 7;  // ثاني مراجعة = أسبوع
+    } else {
+      // استخدام معامل أعلى للممتاز (1.5x)
+      newInterval = Math.round(currentInterval * currentEase * 1.5);
+    }
+    
+    newReps = currentReps + 1;
+    newEase = currentEase + 0.15;  // زيادة السهولة للكروت السهلة
+    
+    // تطبيق الحدود
+    newInterval = Math.max(SM2.MIN_INTERVAL_DAYS, newInterval);
+    newInterval = Math.min(SM2.MAX_INTERVAL_DAYS, newInterval);
+    
     nextReview = addDays(now, newInterval);
   }
 
