@@ -94,6 +94,10 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     setSm2Result(null);
     setAnimation('');
     
+    // إعادة ضبط حالة البطاقة (إخفاء الترجمة)
+    setShowArabic(false);
+    setIsFlipped(false);
+    
     // إزالة البطاقة من القائمة
     setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
     
