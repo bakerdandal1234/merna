@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { 
-  toggleNotifications, 
+import {
+  toggleNotifications,
   getNotificationStatus,
-  unsubscribeFromNotifications 
+  unsubscribeFromNotifications
 } from '../../services/notificationsApi';
 
 const NotificationSettings = () => {
@@ -11,9 +11,7 @@ const NotificationSettings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    fetchNotificationStatus();
-  }, []);
+  useEffect(() => { fetchNotificationStatus(); }, []);
 
   const fetchNotificationStatus = async () => {
     setIsLoading(true);
@@ -34,10 +32,8 @@ const NotificationSettings = () => {
     const newState = !isEnabled;
     setIsLoading(true);
     setMessage('');
-
     try {
       const result = await toggleNotifications(newState);
-      
       if (result.success) {
         setIsEnabled(newState);
         setMessage(result.message);
@@ -46,28 +42,25 @@ const NotificationSettings = () => {
         setMessage('❌ ' + result.message);
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ غير متوقع');
+      setMessage('❌ Unerwarteter Fehler');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUnsubscribe = async () => {
-    if (!window.confirm('هل أنت متأكد من إلغاء الاشتراك في الإشعارات؟')) {
-      return;
-    }
+    if (!window.confirm('Möchten Sie die Benachrichtigungen wirklich abbestellen?')) return;
 
     setIsLoading(true);
     try {
       const result = await unsubscribeFromNotifications();
-      
       if (result.success) {
         setIsSubscribed(false);
         setIsEnabled(false);
         setMessage(result.message);
       }
     } catch (error) {
-      setMessage('❌ حدث خطأ في إلغاء الاشتراك');
+      setMessage('❌ Fehler beim Abbestellen der Benachrichtigungen');
     } finally {
       setIsLoading(false);
     }
@@ -76,22 +69,24 @@ const NotificationSettings = () => {
   if (!isSubscribed) {
     return (
       <div style={styles.container}>
-        <p>لم تفعّل الإشعارات بعد</p>
+        <p>Benachrichtigungen noch nicht aktiviert.</p>
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      <h3 style={{margin: '0 0 20px 0', color: '#333', fontSize: '1.3rem'}}>⚙️ إعدادات الإشعارات</h3>
+      <h3 style={{ margin: '0 0 20px 0', color: '#333', fontSize: '1.3rem' }}>
+        ⚙️ Benachrichtigungseinstellungen
+      </h3>
 
       <div style={styles.settingItem}>
-        <div style={{flex: 1}}>
-          <label style={{display: 'block', marginBottom: '5px', color: '#333'}}>
-            <strong>تفعيل الإشعارات</strong>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block', marginBottom: '5px', color: '#333' }}>
+            <strong>Benachrichtigungen aktivieren</strong>
           </label>
-          <p style={{margin: 0, color: '#666', fontSize: '0.9rem'}}>
-            احصل على تنبيهات عند حلول موعد المراجعة
+          <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+            Erinnerungen erhalten, wenn Wiederholungen fällig sind.
           </p>
         </div>
 
@@ -102,10 +97,10 @@ const NotificationSettings = () => {
             checked={isEnabled}
             onChange={handleToggle}
             disabled={isLoading}
-            style={{opacity: 0, width: 0, height: 0}}
+            style={{ opacity: 0, width: 0, height: 0 }}
           />
-          <label 
-            htmlFor="notification-toggle" 
+          <label
+            htmlFor="notification-toggle"
             style={{
               ...styles.switchLabel,
               background: isEnabled ? '#4CAF50' : '#ccc',
@@ -128,7 +123,7 @@ const NotificationSettings = () => {
       )}
 
       <div style={styles.dangerZone}>
-        <button 
+        <button
           onClick={handleUnsubscribe}
           disabled={isLoading}
           style={{
@@ -137,7 +132,7 @@ const NotificationSettings = () => {
             cursor: isLoading ? 'not-allowed' : 'pointer'
           }}
         >
-          إلغاء الاشتراك من الإشعارات
+          Benachrichtigungen abbestellen
         </button>
       </div>
     </div>
@@ -146,75 +141,35 @@ const NotificationSettings = () => {
 
 const styles = {
   container: {
-    background: 'white',
-    borderRadius: '12px',
-    padding: '25px',
-    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-    margin: '20px 0',
+    background: 'white', borderRadius: '12px', padding: '25px',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)', margin: '20px 0',
   },
   settingItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '15px',
-    background: '#f8f9fa',
-    borderRadius: '8px',
-    marginBottom: '15px',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '15px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '15px',
   },
-  toggleSwitch: {
-    position: 'relative',
-  },
+  toggleSwitch: { position: 'relative' },
   switchLabel: {
-    display: 'block',
-    width: '60px',
-    height: '30px',
-    borderRadius: '30px',
-    position: 'relative',
-    transition: 'background 0.3s',
+    display: 'block', width: '60px', height: '30px',
+    borderRadius: '30px', position: 'relative', transition: 'background 0.3s',
   },
   switchButton: {
-    position: 'absolute',
-    top: '3px',
-    left: '3px',
-    width: '24px',
-    height: '24px',
-    background: 'white',
-    borderRadius: '50%',
-    transition: 'transform 0.3s',
+    position: 'absolute', top: '3px', left: '3px',
+    width: '24px', height: '24px', background: 'white',
+    borderRadius: '50%', transition: 'transform 0.3s',
   },
   success: {
-    padding: '12px',
-    borderRadius: '6px',
-    margin: '15px 0',
-    textAlign: 'center',
-    background: '#d4edda',
-    color: '#155724',
-    border: '1px solid #c3e6cb',
-    fontWeight: '500',
+    padding: '12px', borderRadius: '6px', margin: '15px 0', textAlign: 'center',
+    background: '#d4edda', color: '#155724', border: '1px solid #c3e6cb', fontWeight: '500',
   },
   error: {
-    padding: '12px',
-    borderRadius: '6px',
-    margin: '15px 0',
-    textAlign: 'center',
-    background: '#f8d7da',
-    color: '#721c24',
-    border: '1px solid #f5c6cb',
-    fontWeight: '500',
+    padding: '12px', borderRadius: '6px', margin: '15px 0', textAlign: 'center',
+    background: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', fontWeight: '500',
   },
-  dangerZone: {
-    marginTop: '20px',
-    paddingTop: '20px',
-    borderTop: '1px solid #eee',
-  },
+  dangerZone: { marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' },
   dangerButton: {
-    background: '#dc3545',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '6px',
-    fontSize: '0.9rem',
-    transition: 'background 0.3s',
+    background: '#dc3545', color: 'white', border: 'none',
+    padding: '10px 20px', borderRadius: '6px', fontSize: '0.9rem', transition: 'background 0.3s',
   }
 };
 

@@ -8,7 +8,7 @@ const ProtectedRoute = ({ children }) => {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p style={styles.loadingText}>جاري التحميل...</p>
+        <p style={styles.loadingText}>Wird geladen</p>
       </div>
     );
   }

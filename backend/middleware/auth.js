@@ -4,7 +4,7 @@ const { asyncHandler, AppError } = require('./errorHandler');
 const { HTTP_STATUS, ERRORS } = require('../config/constants');
 
 // ============================================
-// Middleware للتحقق من Access Token
+// Middleware: Access Token verification
 // ============================================
 const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -24,9 +24,9 @@ const protect = asyncHandler(async (req, res, next) => {
     decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return next(new AppError('انتهت صلاحية الجلسة', HTTP_STATUS.UNAUTHORIZED));
+      return next(new AppError('Sitzung abgelaufen', HTTP_STATUS.UNAUTHORIZED));
     }
-    return next(new AppError('رمز غير صالح', HTTP_STATUS.UNAUTHORIZED));
+    return next(new AppError('Ungültiger Token', HTTP_STATUS.UNAUTHORIZED));
   }
 
   // Get user (exclude sensitive fields)
@@ -43,12 +43,12 @@ const protect = asyncHandler(async (req, res, next) => {
 
   // Check if account is locked
   if (user.isLocked) {
-    return next(new AppError('الحساب مقفل مؤقتاً', HTTP_STATUS.FORBIDDEN));
+    return next(new AppError('Konto vorübergehend gesperrt', HTTP_STATUS.FORBIDDEN));
   }
 
   // Check if user changed password after token was issued
   if (user.changedPasswordAfter(decoded.iat)) {
-    return next(new AppError('تم تغيير كلمة المرور. يرجى تسجيل الدخول مرة أخرى', HTTP_STATUS.UNAUTHORIZED));
+    return next(new AppError('Passwort wurde geändert. Bitte melden Sie sich erneut an.', HTTP_STATUS.UNAUTHORIZED));
   }
 
   // Attach user to request
@@ -57,7 +57,7 @@ const protect = asyncHandler(async (req, res, next) => {
 });
 
 // ============================================
-// Middleware للتحقق من الصلاحيات
+// Middleware: Role authorization
 // ============================================
 const authorize = (...roles) => {
   return (req, res, next) => {

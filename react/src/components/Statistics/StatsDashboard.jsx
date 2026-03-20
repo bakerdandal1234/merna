@@ -4,66 +4,57 @@ import { TrendingUp, Target, Award, Calendar, Clock, Zap, BookOpen, CheckCircle 
 import './StatsDashboard.css';
 
 export default function StatsDashboard({ sentences, onStartReview }) {
-  // حساب الإحصائيات
   const stats = useMemo(() => calculateStats(sentences), [sentences]);
   const dueSentences = useMemo(() => getDueSentences(sentences), [sentences]);
   const suggestions = useMemo(() => getSmartSuggestions(stats), [stats]);
   const prediction = useMemo(() => predictMastery(sentences), [sentences]);
 
-  // حساب الـ streak (افتراضي - يمكن استبداله بالبيانات الحقيقية)
-  const streak = 7; // TODO: احصل عليها من localStorage أو Backend
+  const streak = 7; // TODO: fetch from localStorage or backend
 
   return (
     <div className="stats-dashboard">
-      {/* العنوان */}
+      {/* Header */}
       <div className="stats-header">
-        <h1 className="stats-title">📊 إحصائياتك</h1>
-        <p className="stats-subtitle">تتبع تقدمك في تعلم الألمانية</p>
+        <h1 className="stats-title">📊 Ihre Statistiken</h1>
+        <p className="stats-subtitle">Verfolgen Sie Ihren Fortschritt beim Deutschlernen</p>
       </div>
 
-      {/* البطاقات الرئيسية */}
+      {/* Main stat cards */}
       <div className="stats-grid">
-        {/* إجمالي الجمل */}
         <StatCard
           icon={<BookOpen size={32} />}
-          title="إجمالي الجمل"
+          title="Sätze gesamt"
           value={stats.total}
           color="#3b82f6"
-          subtitle="جملة مضافة"
+          subtitle="Hinzugefügte Sätze"
         />
-
-        {/* الجمل المستحقة */}
         <StatCard
           icon={<Clock size={32} />}
-          title="مراجعات اليوم"
+          title="Heutige Wiederholungen"
           value={stats.due}
           color="#f59e0b"
-          subtitle="جملة تنتظر المراجعة"
+          subtitle="Sätze warten auf Wiederholung"
           highlight={stats.due > 0}
         />
-
-        {/* نسبة التعلم النشط */}
         <StatCard
           icon={<TrendingUp size={32} />}
-          title="التعلم النشط"
+          title="Aktives Lernen"
           value={`${stats.masteryPercentage}%`}
           color="#10b981"
-          subtitle="من الجمل قيد المراجعة"
+          subtitle="Sätze in Bearbeitung"
         />
-
-        {/* الـ Streak */}
         <StatCard
           icon={<Zap size={32} />}
           title="Streak"
           value={streak}
           color="#ec4899"
-          subtitle="يوم متتالي 🔥"
+          subtitle="Tage in Folge 🔥"
         />
       </div>
 
-      {/* شريط التقدم */}
+      {/* Progress bar */}
       <div className="progress-section">
-        <h2 className="section-title">📈 التقدم العام</h2>
+        <h2 className="section-title">📈 Gesamtfortschritt</h2>
         <ProgressBar
           new={stats.new}
           hard={stats.hard}
@@ -74,65 +65,34 @@ export default function StatsDashboard({ sentences, onStartReview }) {
         />
       </div>
 
-      {/* تفاصيل المستويات */}
+      {/* Level details */}
       <div className="levels-grid">
-        <LevelCard
-          level="جديد"
-          count={stats.new}
-          total={stats.total}
-          color="#ef4444"
-          icon="🆕"
-        />
-        <LevelCard
-          level="صعب"
-          count={stats.hard}
-          total={stats.total}
-          color="#f97316"
-          icon="😅"
-        />
-        <LevelCard
-          level="جيد"
-          count={stats.good}
-          total={stats.total}
-          color="#eab308"
-          icon="👍"
-        />
-        <LevelCard
-          level="ممتاز"
-          count={stats.excellent}
-          total={stats.total}
-          color="#10b981"
-          icon="⭐"
-        />
-        <LevelCard
-          level="مُتقن"
-          count={stats.mastered}
-          total={stats.total}
-          color="#6366f1"
-          icon="🏆"
-        />
+        <LevelCard level="Neu"        count={stats.new}      total={stats.total} color="#ef4444" icon="🆕" />
+        <LevelCard level="Schwer"     count={stats.hard}     total={stats.total} color="#f97316" icon="😅" />
+        <LevelCard level="Gut"        count={stats.good}     total={stats.total} color="#eab308" icon="👍" />
+        <LevelCard level="Sehr gut"   count={stats.excellent} total={stats.total} color="#10b981" icon="⭐" />
+        <LevelCard level="Beherrscht" count={stats.mastered} total={stats.total} color="#6366f1" icon="🏆" />
       </div>
 
-      {/* التوقعات */}
+      {/* Predictions */}
       <div className="prediction-section">
-        <h2 className="section-title">🔮 التوقعات</h2>
+        <h2 className="section-title">🔮 Prognose</h2>
         <div className="prediction-card">
           <div className="prediction-item">
             <Calendar size={24} />
             <div>
-              <div className="prediction-label">الإتقان الكامل</div>
+              <div className="prediction-label">Vollständige Beherrschung</div>
               <div className="prediction-value">
-                {prediction.daysNeeded} يوم
-                ({prediction.weeksNeeded} أسبوع تقريباً)
+                {prediction.daysNeeded} Tage ({prediction.weeksNeeded} Wochen ca.)
               </div>
             </div>
           </div>
           <div className="prediction-item">
             <Target size={24} />
             <div>
-              <div className="prediction-label">التاريخ المتوقع</div>
+              <div className="prediction-label">Voraussichtliches Datum</div>
               <div className="prediction-value">
-                {prediction.estimatedDate.toLocaleDateString('ar-EG', {
+                {prediction.estimatedDate.toLocaleDateString('de-DE', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'
@@ -141,20 +101,22 @@ export default function StatsDashboard({ sentences, onStartReview }) {
             </div>
           </div>
         </div>
-        <p className="prediction-note">
-          * بناءً على معدل 15 مراجعة يومياً
-        </p>
+        <p className="prediction-note">* Basierend auf 15 Wiederholungen pro Tag</p>
       </div>
 
-      {/* الاقتراحات الذكية */}
+      {/* Smart suggestions */}
       <div className="suggestions-section">
-        <h2 className="section-title">💡 اقتراحات ذكية</h2>
+        <h2 className="section-title">💡 Intelligente Vorschläge</h2>
         <div className="suggestions-list">
           {suggestions.map((suggestion, index) => {
-            const isReviewAction = suggestion.action === 'راجع الآن' || suggestion.action === 'ابدأ المراجعة الآن';
+            const isReviewAction =
+              suggestion.action === 'راجع الآن' ||
+              suggestion.action === 'ابدأ المراجعة الآن' ||
+              suggestion.action === 'Jetzt wiederholen' ||
+              suggestion.action === 'Wiederholung starten';
             return (
-              <SuggestionCard 
-                key={index} 
+              <SuggestionCard
+                key={index}
                 {...suggestion}
                 onAction={isReviewAction ? onStartReview : null}
               />
@@ -163,59 +125,26 @@ export default function StatsDashboard({ sentences, onStartReview }) {
         </div>
       </div>
 
-      {/* الإنجازات */}
+      {/* Achievements */}
       <div className="achievements-section">
-        <h2 className="section-title">🏆 الإنجازات</h2>
+        <h2 className="section-title">🏆 Erfolge</h2>
         <div className="achievements-grid">
-          <Achievement
-            icon="🎯"
-            title="البداية القوية"
-            description="أضف 10 جمل"
-            achieved={stats.total >= 10}
-          />
-          <Achievement
-            icon="📚"
-            title="متعلم نشط"
-            description="أضف 50 جملة"
-            achieved={stats.total >= 50}
-          />
-          <Achievement
-            icon="⭐"
-            title="نجم الإتقان"
-            description="أتقن 25 جملة"
-            achieved={stats.mastered >= 25}
-          />
-          <Achievement
-            icon="🔥"
-            title="Streak Master"
-            description="7 أيام متتالية"
-            achieved={streak >= 7}
-          />
-          <Achievement
-            icon="💯"
-            title="الإتقان الكامل"
-            description="100% إتقان"
-            achieved={stats.masteryPercentage >= 100}
-          />
-          <Achievement
-            icon="👑"
-            title="الأسطورة"
-            description="أتقن 100 جملة"
-            achieved={stats.mastered >= 100}
-          />
+          <Achievement icon="🎯" title="Starker Start"      description="10 Sätze hinzufügen"    achieved={stats.total >= 10} />
+          <Achievement icon="📚" title="Aktiver Lerner"     description="50 Sätze hinzufügen"    achieved={stats.total >= 50} />
+          <Achievement icon="⭐" title="Meisterstern"       description="25 Sätze beherrschen"   achieved={stats.mastered >= 25} />
+          <Achievement icon="🔥" title="Streak Master"      description="7 Tage in Folge"        achieved={streak >= 7} />
+          <Achievement icon="💯" title="Volle Beherrschung" description="100% Fortschritt"       achieved={stats.masteryPercentage >= 100} />
+          <Achievement icon="👑" title="Legende"            description="100 Sätze beherrschen"  achieved={stats.mastered >= 100} />
         </div>
       </div>
     </div>
   );
 }
 
-// Component للبطاقة الإحصائية
 function StatCard({ icon, title, value, color, subtitle, highlight }) {
   return (
     <div className={`stat-card ${highlight ? 'highlight' : ''}`} style={{ '--color': color }}>
-      <div className="stat-icon" style={{ color }}>
-        {icon}
-      </div>
+      <div className="stat-icon" style={{ color }}>{icon}</div>
       <div className="stat-content">
         <div className="stat-title">{title}</div>
         <div className="stat-value">{value}</div>
@@ -225,61 +154,29 @@ function StatCard({ icon, title, value, color, subtitle, highlight }) {
   );
 }
 
-// Component لشريط التقدم
 function ProgressBar({ new: newCount, hard, good, excellent, mastered, total }) {
   const getPercentage = (count) => total > 0 ? (count / total) * 100 : 0;
 
   return (
     <div className="progress-bar-container">
       <div className="progress-bar">
-        <div
-          className="progress-segment new"
-          style={{ width: `${getPercentage(newCount)}%` }}
-          title={`جديد: ${newCount}`}
-        />
-        <div
-          className="progress-segment hard"
-          style={{ width: `${getPercentage(hard)}%` }}
-          title={`صعب: ${hard}`}
-        />
-        <div
-          className="progress-segment good"
-          style={{ width: `${getPercentage(good)}%` }}
-          title={`جيد: ${good}`}
-        />
-        <div
-          className="progress-segment excellent"
-          style={{ width: `${getPercentage(excellent)}%` }}
-          title={`ممتاز: ${excellent}`}
-        />
-        <div
-          className="progress-segment mastered"
-          style={{ width: `${getPercentage(mastered)}%` }}
-          title={`مُتقن: ${mastered}`}
-        />
+        <div className="progress-segment new"       style={{ width: `${getPercentage(newCount)}%` }}  title={`Neu: ${newCount}`} />
+        <div className="progress-segment hard"      style={{ width: `${getPercentage(hard)}%` }}      title={`Schwer: ${hard}`} />
+        <div className="progress-segment good"      style={{ width: `${getPercentage(good)}%` }}      title={`Gut: ${good}`} />
+        <div className="progress-segment excellent" style={{ width: `${getPercentage(excellent)}%` }} title={`Sehr gut: ${excellent}`} />
+        <div className="progress-segment mastered"  style={{ width: `${getPercentage(mastered)}%` }}  title={`Beherrscht: ${mastered}`} />
       </div>
       <div className="progress-legend">
-        <span className="legend-item">
-          <span className="legend-dot new"></span> جديد ({newCount})
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot hard"></span> صعب ({hard})
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot good"></span> جيد ({good})
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot excellent"></span> ممتاز ({excellent})
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot mastered"></span> مُتقن ({mastered})
-        </span>
+        <span className="legend-item"><span className="legend-dot new"></span> Neu ({newCount})</span>
+        <span className="legend-item"><span className="legend-dot hard"></span> Schwer ({hard})</span>
+        <span className="legend-item"><span className="legend-dot good"></span> Gut ({good})</span>
+        <span className="legend-item"><span className="legend-dot excellent"></span> Sehr gut ({excellent})</span>
+        <span className="legend-item"><span className="legend-dot mastered"></span> Beherrscht ({mastered})</span>
       </div>
     </div>
   );
 }
 
-// Component لبطاقة المستوى
 function LevelCard({ level, count, total, color, icon }) {
   const percentage = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
 
@@ -288,12 +185,9 @@ function LevelCard({ level, count, total, color, icon }) {
       <div className="level-icon">{icon}</div>
       <div className="level-info">
         <div className="level-name">{level}</div>
-        <div className="level-count">{count} جملة</div>
+        <div className="level-count">{count} Satz/Sätze</div>
         <div className="level-bar">
-          <div
-            className="level-fill"
-            style={{ width: `${percentage}%`, backgroundColor: color }}
-          />
+          <div className="level-fill" style={{ width: `${percentage}%`, backgroundColor: color }} />
         </div>
         <div className="level-percentage">{percentage}%</div>
       </div>
@@ -301,7 +195,6 @@ function LevelCard({ level, count, total, color, icon }) {
   );
 }
 
-// Component للاقتراح
 function SuggestionCard({ type, icon, message, action, onAction }) {
   return (
     <div className={`suggestion-card ${type}`}>
@@ -309,19 +202,13 @@ function SuggestionCard({ type, icon, message, action, onAction }) {
       <div className="suggestion-content">
         <p className="suggestion-message">{message}</p>
         {action && (
-          <button 
-            className="suggestion-action"
-            onClick={onAction}
-          >
-            {action}
-          </button>
+          <button className="suggestion-action" onClick={onAction}>{action}</button>
         )}
       </div>
     </div>
   );
 }
 
-// Component للإنجاز
 function Achievement({ icon, title, description, achieved }) {
   return (
     <div className={`achievement ${achieved ? 'achieved' : 'locked'}`}>

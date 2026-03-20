@@ -1,14 +1,11 @@
 import React from 'react';
 import SentenceItem from './SentenceItem';
 
-export default function SentencesList({
-  sentences,
-  ...props 
-}) {
+export default function SentencesList({ sentences, ...props }) {
   if (sentences.length === 0) {
     return (
       <div className="card empty-state">
-        لا توجد جمل بعد. ابدأ بإضافة جملة جديدة!
+        Noch keine Sätze vorhanden. Fügen Sie Ihren ersten Satz hinzu!
       </div>
     );
   }

@@ -8,27 +8,22 @@ export default function StatsMinimal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // جلب الإحصائيات من Backend
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchStats(); }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
       const response = await getStats();
-      if (response.success) {
-        setStats(response.stats);
-      }
+      if (response.success) setStats(response.stats);
     } catch (err) {
-      console.error('خطأ في جلب الإحصائيات:', err);
-      setError('فشل تحميل الإحصائيات');
+      console.error('Error fetching stats:', err);
+      setError('Statistiken konnten nicht geladen werden');
     } finally {
       setLoading(false);
     }
   };
 
-  // حساب الـ streak من localStorage (مؤقتاً حتى يتم إضافته للـ Backend)
+  // Streak from localStorage (temporary until backend supports it)
   const streak = useMemo(() => {
     return parseInt(localStorage.getItem('reviewStreak') || '0');
   }, []);
@@ -59,7 +54,7 @@ export default function StatsMinimal() {
       <div className="stats-minimal-error">
         <p>{error}</p>
         <button onClick={fetchStats} className="retry-btn">
-          إعادة المحاولة
+          Erneut versuchen
         </button>
       </div>
     );
@@ -69,48 +64,40 @@ export default function StatsMinimal() {
 
   return (
     <div className="stats-minimal">
-      {/* الجمل المستحقة اليوم */}
+      {/* Due today */}
       <div className="stat-card due">
-        <div className="stat-icon">
-          <Clock size={24} />
-        </div>
+        <div className="stat-icon"><Clock size={24} /></div>
         <div className="stat-content">
           <div className="stat-value">{stats.due || 0}</div>
-          <div className="stat-label">للمراجعة اليوم</div>
+          <div className="stat-label">Heute fällig</div>
         </div>
       </div>
 
-      {/* إجمالي الجمل */}
+      {/* Total sentences */}
       <div className="stat-card total">
-        <div className="stat-icon">
-          <Target size={24} />
-        </div>
+        <div className="stat-icon"><Target size={24} /></div>
         <div className="stat-content">
           <div className="stat-value">{stats.total || 0}</div>
-          <div className="stat-label">إجمالي الجمل</div>
+          <div className="stat-label">Sätze gesamt</div>
         </div>
       </div>
 
-      {/* نسبة التعلم النشط */}
+      {/* Active learning percentage */}
       <div className="stat-card mastery">
-        <div className="stat-icon">
-          <TrendingUp size={24} />
-        </div>
+        <div className="stat-icon"><TrendingUp size={24} /></div>
         <div className="stat-content">
           <div className="stat-value">{stats.masteryPercentage || 0}%</div>
-          <div className="stat-label">التعلم النشط</div>
+          <div className="stat-label">Aktives Lernen</div>
         </div>
       </div>
 
-      {/* عداد الـ Streak */}
+      {/* Streak counter */}
       {streak > 0 && (
         <div className="stat-card streak">
-          <div className="stat-icon">
-            <Zap size={24} />
-          </div>
+          <div className="stat-icon"><Zap size={24} /></div>
           <div className="stat-content">
             <div className="stat-value">{streak} 🔥</div>
-            <div className="stat-label">يوم متتالي</div>
+            <div className="stat-label">Tage in Folge</div>
           </div>
         </div>
       )}

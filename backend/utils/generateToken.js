@@ -6,7 +6,7 @@ const { JWT, HTTP_STATUS } = require('../config/constants');
 // ============================================
 const generateAccessToken = (userId, role) => {
   if (!process.env.JWT_ACCESS_SECRET) {
-    throw new Error('JWT_ACCESS_SECRET غير موجود في ملف .env');
+    throw new Error('JWT_ACCESS_SECRET fehlt in der .env-Datei');
   }
 
   return jwt.sign(
@@ -21,7 +21,7 @@ const generateAccessToken = (userId, role) => {
 // ============================================
 const generateRefreshToken = (userId) => {
   if (!process.env.JWT_REFRESH_SECRET) {
-    throw new Error('JWT_REFRESH_SECRET غير موجود في ملف .env');
+    throw new Error('JWT_REFRESH_SECRET fehlt in der .env-Datei');
   }
 
   return jwt.sign(
@@ -42,7 +42,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     // Cookie options
     const cookieOptions = {
       httpOnly: true, // Prevents JavaScript access (XSS protection)
-      secure: true, // Ensures cookie is sent over HTTPS
+      secure: true,   // Ensures cookie is sent over HTTPS
       sameSite: 'none', // Allows cross-site requests
       maxAge: JWT.COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
       path: '/'

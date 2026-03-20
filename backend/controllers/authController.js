@@ -7,7 +7,7 @@ const { HTTP_STATUS, ERRORS } = require('../config/constants');
 const jwt = require('jsonwebtoken');
 
 // ============================================
-// @desc    تسجيل مستخدم جديد
+// @desc    Neuen Benutzer registrieren
 // @route   POST /api/auth/register
 // @access  Public
 // ============================================
@@ -34,13 +34,13 @@ exports.register = asyncHandler(async (req, res, next) => {
   try {
     await sendEmail({
       email: user.email,
-      subject: `تفعيل حساب ${user.name}`,
+      subject: `Kontoaktivierung für ${user.name}`,
       html: getVerificationEmailTemplate(verificationUrl, user.name)
     });
 
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
-      message: 'تم إنشاء الحساب بنجاح. يرجى التحقق من إيميلك لتفعيل الحساب'
+      message: 'Konto erfolgreich erstellt. Bitte überprüfen Sie Ihre E-Mails, um Ihr Konto zu aktivieren.'
     });
   } catch (error) {
     // If email fails, remove verification tokens
@@ -48,12 +48,12 @@ exports.register = asyncHandler(async (req, res, next) => {
     user.verificationTokenExpire = undefined;
     await user.save({ validateBeforeSave: false });
 
-    return next(new AppError('حدث خطأ في إرسال إيميل التفعيل', HTTP_STATUS.INTERNAL_SERVER_ERROR));
+    return next(new AppError('Fehler beim Senden der Aktivierungs-E-Mail', HTTP_STATUS.INTERNAL_SERVER_ERROR));
   }
 });
 
 // ============================================
-// @desc    تفعيل الحساب
+// @desc    Konto aktivieren
 // @route   GET /api/auth/verify-email/:token
 // @access  Public
 // ============================================
@@ -71,7 +71,7 @@ exports.verifyEmail = asyncHandler(async (req, res, next) => {
   });
 
   if (!user) {
-    return next(new AppError('رابط التفعيل غير صالح أو منتهي الصلاحية', HTTP_STATUS.BAD_REQUEST));
+    return next(new AppError('Aktivierungslink ist ungültig oder abgelaufen', HTTP_STATUS.BAD_REQUEST));
   }
 
   // Activate user
@@ -82,12 +82,12 @@ exports.verifyEmail = asyncHandler(async (req, res, next) => {
 
   res.status(HTTP_STATUS.OK).json({
     success: true,
-    message: 'تم تفعيل حسابك بنجاح! يمكنك الآن تسجيل الدخول'
+    message: 'Ihr Konto wurde erfolgreich aktiviert! Sie können sich jetzt anmelden.'
   });
 });
 
 // ============================================
-// @desc    تسجيل الدخول
+// @desc    Anmeldung
 // @route   POST /api/auth/login
 // @access  Public
 // ============================================
@@ -96,7 +96,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   // Validate input
   if (!email || !password) {
-    return next(new AppError('يرجى إدخال الإيميل وكلمة المرور', HTTP_STATUS.BAD_REQUEST));
+    return next(new AppError('Bitte geben Sie E-Mail und Passwort ein', HTTP_STATUS.BAD_REQUEST));
   }
 
   // Use static method for authentication
@@ -117,7 +117,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 });
 
 // ============================================
-// @desc    تجديد Access Token
+// @desc    Access Token erneuern
 // @route   POST /api/auth/refresh-token
 // @access  Public
 // ============================================
@@ -125,7 +125,7 @@ exports.refreshToken = asyncHandler(async (req, res, next) => {
   const { refreshToken } = req.cookies;
 
   if (!refreshToken) {
-    return next(new AppError('Refresh token غير موجود', HTTP_STATUS.UNAUTHORIZED));
+    return next(new AppError('Refresh-Token nicht gefunden', HTTP_STATUS.UNAUTHORIZED));
   }
 
   // Verify refresh token
@@ -140,7 +140,7 @@ exports.refreshToken = asyncHandler(async (req, res, next) => {
 
   // Check if password was changed after token was issued
   if (user.changedPasswordAfter(decoded.iat)) {
-    return next(new AppError('تم تغيير كلمة المرور. يرجى تسجيل الدخول مرة أخرى', HTTP_STATUS.UNAUTHORIZED));
+    return next(new AppError('Das Passwort wurde geändert. Bitte melden Sie sich erneut an', HTTP_STATUS.UNAUTHORIZED));
   }
 
   // Generate new access token
@@ -153,7 +153,7 @@ exports.refreshToken = asyncHandler(async (req, res, next) => {
 });
 
 // ============================================
-// @desc    تسجيل الخروج
+// @desc    Abmelden
 // @route   POST /api/auth/logout
 // @access  Private
 // ============================================
@@ -166,12 +166,12 @@ exports.logout = asyncHandler(async (req, res) => {
 
   res.status(HTTP_STATUS.OK).json({
     success: true,
-    message: 'تم تسجيل الخروج بنجاح'
+    message: 'Erfolgreich abgemeldet'
   });
 });
 
 // ============================================
-// @desc    نسيت كلمة المرور
+// @desc    Passwort vergessen
 // @route   POST /api/auth/forgot-password
 // @access  Public
 // ============================================
@@ -181,7 +181,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   const user = await User.findOne({ email });
 
   // For security, always return same message
-  const successMessage = 'إذا كان الإيميل موجوداً، ستتلقى رسالة لإعادة تعيين كلمة المرور';
+  const successMessage = 'Wenn die E-Mail-Adresse existiert, erhalten Sie eine Nachricht zum Zurücksetzen des Passworts.';
 
   if (!user) {
     return res.status(HTTP_STATUS.OK).json({
@@ -200,7 +200,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   try {
     await sendEmail({
       email: user.email,
-      subject: 'إعادة تعيين كلمة المرور - Merna',
+      subject: 'Passwort zurücksetzen - Merna',
       html: getResetPasswordEmailTemplate(resetUrl, user.name)
     });
 
@@ -213,12 +213,12 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     user.resetPasswordExpire = undefined;
     await user.save({ validateBeforeSave: false });
 
-    return next(new AppError('حدث خطأ في إرسال الإيميل', HTTP_STATUS.INTERNAL_SERVER_ERROR));
+    return next(new AppError('Fehler beim Senden der E-Mail', HTTP_STATUS.INTERNAL_SERVER_ERROR));
   }
 });
 
 // ============================================
-// @desc    إعادة تعيين كلمة المرور
+// @desc    Passwort zurücksetzen
 // @route   PUT /api/auth/reset-password/:token
 // @access  Public
 // ============================================
@@ -238,7 +238,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
   });
 
   if (!user) {
-    return next(new AppError('رابط إعادة التعيين غير صالح أو منتهي الصلاحية', HTTP_STATUS.BAD_REQUEST));
+    return next(new AppError('Der Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen', HTTP_STATUS.BAD_REQUEST));
   }
 
   // Set new password
@@ -249,12 +249,12 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
 
   res.status(HTTP_STATUS.OK).json({
     success: true,
-    message: 'تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول'
+    message: 'Das Passwort wurde erfolgreich geändert. Sie können sich jetzt anmelden.'
   });
 });
 
 // ============================================
-// @desc    الحصول على بيانات المستخدم
+// @desc    Benutzerdaten abrufen
 // @route   GET /api/auth/me
 // @access  Private
 // ============================================

@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  getLevelDetails
-} from '../../../utils/srsUtils';
+import { getLevelDetails } from '../../../utils/srsUtils';
 import { reviewSentence, getDueSentences } from '../../../services/sentencesApi';
 import ReviewResultModal from './ReviewResultModal';
 import './FlashcardNew.css';
@@ -17,44 +15,28 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
   const [completedSession, setCompletedSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Modal state
   const [showModal, setShowModal] = useState(false);
   const [sm2Result, setSm2Result] = useState(null);
-  
   const cardRef = useRef(null);
 
-  // جلب الجمل المستحقة من Backend
-  useEffect(() => {
-    fetchDueSentences();
-  }, []);
+  useEffect(() => { fetchDueSentences(); }, []);
 
   const fetchDueSentences = async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await getDueSentences(50);
-      
       if (response.success) {
         setDueSentences(response.data || []);
-        
-        if (response.data.length === 0) {
-          setCompletedSession(true);
-        }
+        if (response.data.length === 0) setCompletedSession(true);
       }
     } catch (err) {
-      console.error('خطأ في جلب الجمل المستحقة:', err);
-      setError('فشل تحميل الجمل المستحقة');
+      console.error('Error fetching due sentences:', err);
+      setError('Fällige Sätze konnten nicht geladen werden');
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (onUpdate) {
-      // يمكن إضافة logic للتحديث هنا
-    }
-  }, [onUpdate]);
 
   useEffect(() => {
     if (currentCardIndex >= dueSentences.length && dueSentences.length > 0) {
@@ -67,10 +49,7 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
   const currentCard = dueSentences[currentCardIndex];
 
   const nextCard = useCallback(() => {
-    setShowArabic(false);
-    setIsFlipped(false);
-    setAnimation('');
-    
+    setShowArabic(false); setIsFlipped(false); setAnimation('');
     if (currentCardIndex < dueSentences.length - 1) {
       setCurrentCardIndex(prev => prev + 1);
     } else {
@@ -79,52 +58,28 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
   }, [currentCardIndex, dueSentences.length]);
 
   const prevCard = useCallback(() => {
-    setShowArabic(false);
-    setIsFlipped(false);
-    setAnimation('');
-    
-    if (currentCardIndex > 0) {
-      setCurrentCardIndex(prev => prev - 1);
-    }
+    setShowArabic(false); setIsFlipped(false); setAnimation('');
+    if (currentCardIndex > 0) setCurrentCardIndex(prev => prev - 1);
   }, [currentCardIndex]);
 
-  // دالة إغلاق الـ Modal والانتقال للبطاقة التالية
   const handleModalClose = () => {
-    setShowModal(false);
-    setSm2Result(null);
-    setAnimation('');
-    
-    // إعادة ضبط حالة البطاقة (إخفاء الترجمة)
-    setShowArabic(false);
-    setIsFlipped(false);
-    
-    // إزالة البطاقة من القائمة
+    setShowModal(false); setSm2Result(null); setAnimation('');
+    setShowArabic(false); setIsFlipped(false);
     setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
-    
-    // التحقق من إكمال الجلسة
-    if (currentCardIndex >= dueSentences.length - 1) {
-      setCompletedSession(true);
-    }
-    
+    if (currentCardIndex >= dueSentences.length - 1) setCompletedSession(true);
     setIsReviewing(false);
   };
 
-  // دالة المراجعة الرئيسية - محدثة لاستخدام بيانات SM-2 من Backend
   const handleReview = useCallback(async (quality) => {
     if (!currentCard || isReviewing) return;
-
     setIsReviewing(true);
 
-    // تحديد نوع الأنيميشن
     if (quality >= 2) {
       setAnimation('correct-animation');
       const newStreak = correctStreak + 1;
       setCorrectStreak(newStreak);
-      
-      // حفظ الـ streak في localStorage
       const lastReviewDate = localStorage.getItem('lastReviewDate');
       const today = new Date().toDateString();
-      
       if (lastReviewDate === today) {
         const currentStreak = parseInt(localStorage.getItem('reviewStreak') || '0');
         localStorage.setItem('reviewStreak', (currentStreak + 1).toString());
@@ -138,75 +93,53 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
     }
 
     try {
-      // إرسال المراجعة للـ Backend
       const response = await reviewSentence(currentCard._id, quality);
-
       if (response.success && response.sm2Result) {
-        console.log('✅ تمت المراجعة:', response.message);
-        console.log('📊 نتائج SM-2:', response.sm2Result);
-        
-        // عرض الـ Modal بنتائج SM-2 الحقيقية من Backend
         setSm2Result(response.sm2Result);
         setShowModal(true);
-        
-        // تحديث البيانات
-        if (onUpdate) {
-          onUpdate();
-        }
+        if (onUpdate) onUpdate();
       }
-
     } catch (error) {
-      console.error('❌ خطأ في المراجعة:', error);
-      
+      console.error('Error reviewing sentence:', error);
       let userMessage = '';
-      
       if (error.response?.status === 500) {
-        userMessage = '⚠️ خطأ في الخادم. سيتم تخطي هذه الجملة.';
-        
+        userMessage = '⚠️ Serverfehler. Dieser Satz wird übersprungen.';
         setTimeout(() => {
           setAnimation('');
           setDueSentences(prev => prev.filter((_, index) => index !== currentCardIndex));
           setIsReviewing(false);
         }, 1500);
       } else if (error.response?.status === 403) {
-        userMessage = '🚫 غير مسموح! يمكنك فقط مراجعة الجمل التي أضفتها أنت';
+        userMessage = '🚫 Nicht erlaubt! Sie können nur Ihre eigenen Sätze wiederholen.';
       } else if (error.response?.status === 404) {
-        userMessage = '❌ الجملة غير موجودة. سيتم تحديث القائمة.';
+        userMessage = '❌ Satz nicht gefunden. Die Liste wird aktualisiert.';
         if (onUpdate) onUpdate();
         fetchDueSentences();
       } else if (error.response?.status === 400) {
-        userMessage = '❌ التقييم غير صالح';
+        userMessage = '❌ Ungültige Bewertung';
       } else if (error.response?.status === 401) {
-        userMessage = '🔒 انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.';
+        userMessage = '🔒 Sitzung abgelaufen. Bitte erneut anmelden.';
       } else {
-        userMessage = error.response?.data?.message || '❌ حدث خطأ غير متوقع';
+        userMessage = error.response?.data?.message || '❌ Unbekannter Fehler';
       }
-      
       if (!error.response?.data?.message?.includes('userId')) {
         alert(userMessage);
       }
-      
       setAnimation('');
       setIsReviewing(false);
     }
   }, [currentCard, correctStreak, currentCardIndex, dueSentences.length, onUpdate]);
 
   const handleFlip = useCallback(() => {
-    setIsFlipped(!isFlipped);
-    setShowArabic(!showArabic);
+    setIsFlipped(!isFlipped); setShowArabic(!showArabic);
   }, [isFlipped, showArabic]);
 
   const handleKeyPress = useCallback((e) => {
     if (isReviewing || showModal) return;
-
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      handleFlip();
-    } else if (e.key === 'ArrowLeft') {
-      prevCard();
-    } else if (e.key === 'ArrowRight') {
-      nextCard();
-    } else if (showArabic) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handleFlip(); }
+    else if (e.key === 'ArrowLeft') prevCard();
+    else if (e.key === 'ArrowRight') nextCard();
+    else if (showArabic) {
       if (e.key === '0') handleReview(0);
       else if (e.key === '1') handleReview(1);
       else if (e.key === '2') handleReview(2);
@@ -224,7 +157,7 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
       <div className="flashcard-container">
         <div className="flashcard-loading">
           <div className="spinner"></div>
-          <p>جاري تحميل الجمل المستحقة...</p>
+          <p>Fällige Sätze werden geladen...</p>
         </div>
       </div>
     );
@@ -236,12 +169,8 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
         <div className="flashcard-error">
           <div className="error-icon">❌</div>
           <h2>{error}</h2>
-          <button 
-            className="review-btn btn-good"
-            onClick={fetchDueSentences}
-            style={{ marginTop: '20px' }}
-          >
-            إعادة المحاولة
+          <button className="review-btn btn-good" onClick={fetchDueSentences} style={{ marginTop: '20px' }}>
+            Erneut versuchen
           </button>
         </div>
       </div>
@@ -254,19 +183,17 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
         <div className="flashcard-empty">
           <div className="empty-icon">🎉</div>
           <h2>
-            {completedSession 
-              ? 'رائع! أكملت جميع الجمل المستحقة للمراجعة!' 
-              : 'أحسنت! لا توجد بطاقات للمراجعة الآن'
-            }
+            {completedSession
+              ? 'Super! Alle fälligen Sätze wurden wiederholt!'
+              : 'Keine Karten zur Wiederholung vorhanden.'}
           </h2>
           <p>
             {completedSession
-              ? `لقد راجعت جمل بنجاح`
-              : 'عد لاحقاً أو أضف جمل جديدة'
-            }
+              ? 'Sie haben die Sätze erfolgreich wiederholt.'
+              : 'Kommen Sie später wieder oder fügen Sie neue Sätze hinzu.'}
           </p>
           <div style={{ marginTop: '20px' }}>
-            <button 
+            <button
               className="review-btn btn-excellent"
               onClick={() => {
                 fetchDueSentences();
@@ -279,7 +206,7 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
               style={{ padding: '12px 24px', fontSize: '16px' }}
             >
               <span className="btn-emoji">🔄</span>
-              <span className="btn-text">تحديث القائمة</span>
+              <span className="btn-text">Liste aktualisieren</span>
             </button>
           </div>
         </div>
@@ -291,74 +218,68 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
 
   return (
     <div className="flashcard-container">
-      {/* شريط التقدم */}
+      {/* Progress bar */}
       <div className="flashcard-progress">
         <div className="progress-info">
           <span>{currentCardIndex + 1} / {dueSentences.length}</span>
           {correctStreak > 0 && (
-            <span className="streak-indicator">
-              🔥 {correctStreak}
-            </span>
+            <span className="streak-indicator">🔥 {correctStreak}</span>
           )}
         </div>
         <div className="progress-bar">
-          <div 
-            className="progress-fill" 
+          <div
+            className="progress-fill"
             style={{ width: `${((currentCardIndex + 1) / dueSentences.length) * 100}%` }}
           />
         </div>
       </div>
 
-      {/* البطاقة */}
-      <div 
+      {/* Card */}
+      <div
         ref={cardRef}
         className={`flashcard ${animation} ${isFlipped ? 'flipped' : ''}`}
         onClick={handleFlip}
       >
         <div className="flashcard-inner">
-          {/* الوجه الأمامي */}
+          {/* Front */}
           <div className="flashcard-front">
             <div className="level-badge" style={{ backgroundColor: levelDetails.color }}>
               <span className="badge-emoji">{levelDetails.emoji}</span>
               <span className="badge-text">{levelDetails.text}</span>
             </div>
-            
             <div className="card-content">
               <p className="german-text">{currentCard.german}</p>
-              
               <div className="card-stats">
                 <div className="stat-item">
-                  <span className="stat-label">المراجعات</span>
+                  <span className="stat-label">Wiederholungen</span>
                   <span className="stat-value">{currentCard.reviewCount || 0}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">الدقة</span>
+                  <span className="stat-label">Genauigkeit</span>
                   <span className="stat-value">
-                    {currentCard.reviewCount > 0 
+                    {currentCard.reviewCount > 0
                       ? `${Math.round((currentCard.correctCount / currentCard.reviewCount) * 100)}%`
                       : '-'}
                   </span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">الفاصل</span>
-                  <span className="stat-value">{currentCard.interval || 0} يوم</span>
+                  <span className="stat-label">Intervall</span>
+                  <span className="stat-value">{currentCard.interval || 0} Tag(e)</span>
                 </div>
               </div>
             </div>
-            
             <div className="flip-hint">
-              <span>اضغط للكشف</span>
+              <span>Zum Aufdecken klicken</span>
               <span className="hint-icon">👆</span>
             </div>
           </div>
 
-          {/* الوجه الخلفي */}
+          {/* Back */}
           <div className="flashcard-back">
             <div className="level-badge" style={{ backgroundColor: levelDetails.color }}>
               <span className="badge-emoji">{levelDetails.emoji}</span>
               <span className="badge-text">{levelDetails.text}</span>
             </div>
-            
             <div className="card-content">
               <p className="german-text">{currentCard.german}</p>
               <div className="divider"></div>
@@ -368,52 +289,25 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
         </div>
       </div>
 
-      {/* أزرار المراجعة - 4 مستويات */}
+      {/* Review buttons */}
       {showArabic && !isReviewing && (
         <div className="review-buttons">
-          <button 
-            className="review-btn btn-wrong"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(0);
-            }}
-          >
+          <button className="review-btn btn-wrong" onClick={(e) => { e.stopPropagation(); handleReview(0); }}>
             <span className="btn-emoji">❌</span>
             <span className="btn-text">Again</span>
             <span className="btn-shortcut">0</span>
           </button>
-          
-          <button 
-            className="review-btn btn-hard"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(1);
-            }}
-          >
+          <button className="review-btn btn-hard" onClick={(e) => { e.stopPropagation(); handleReview(1); }}>
             <span className="btn-emoji">😅</span>
             <span className="btn-text">Hard</span>
             <span className="btn-shortcut">1</span>
           </button>
-          
-          <button 
-            className="review-btn btn-good"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(2);
-            }}
-          >
+          <button className="review-btn btn-good" onClick={(e) => { e.stopPropagation(); handleReview(2); }}>
             <span className="btn-emoji">👍</span>
             <span className="btn-text">Good</span>
             <span className="btn-shortcut">2</span>
           </button>
-          
-          <button 
-            className="review-btn btn-excellent"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReview(3);
-            }}
-          >
+          <button className="review-btn btn-excellent" onClick={(e) => { e.stopPropagation(); handleReview(3); }}>
             <span className="btn-emoji">⭐</span>
             <span className="btn-text">Excellent</span>
             <span className="btn-shortcut">3</span>
@@ -421,25 +315,16 @@ export default function FlashcardView({ onUpdate, showOnlyDue = true }) {
         </div>
       )}
 
-      {/* أزرار التنقل */}
+      {/* Navigation */}
       <div className="navigation-buttons">
-        <button 
-          className="nav-btn" 
-          onClick={prevCard}
-          disabled={currentCardIndex === 0}
-        >
-          ← السابق
+        <button className="nav-btn" onClick={prevCard} disabled={currentCardIndex === 0}>
+          ← Zurück
         </button>
-        <button 
-          className="nav-btn" 
-          onClick={nextCard}
-          disabled={currentCardIndex >= dueSentences.length - 1}
-        >
-          التالي →
+        <button className="nav-btn" onClick={nextCard} disabled={currentCardIndex >= dueSentences.length - 1}>
+          Weiter →
         </button>
       </div>
 
-      {/* Modal لعرض نتائج SM-2 */}
       <ReviewResultModal
         isOpen={showModal}
         onClose={handleModalClose}

@@ -1,29 +1,29 @@
-// التحكم في الإشعارات الفورية (Push Notifications)
+// Push Notifications Controller
 const PushSubscription = require('../models/PushSubscription');
 const webpush = require('web-push');
 
-// إعداد VAPID Keys من ملف البيئة
+// Configure VAPID Keys from environment
 webpush.setVapidDetails(
   'mailto:' + (process.env.ADMIN_EMAIL || 'admin@example.com'),
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
 
-// 1️⃣ حفظ اشتراك الإشعارات للمستخدم
+// 1️⃣ Save push subscription for the user
 exports.subscribe = async (req, res) => {
   try {
     const { subscription } = req.body;
-    const userId = req.user.id; // من middleware المصادقة
+    const userId = req.user.id;
 
-    // التحقق من وجود بيانات الاشتراك
+    // Validate subscription data
     if (!subscription || !subscription.endpoint) {
       return res.status(400).json({
         success: false,
-        message: 'بيانات الاشتراك غير صحيحة'
+        message: 'Ungültige Abonnementdaten'
       });
     }
 
-    // حفظ أو تحديث الاشتراك
+    // Save or update subscription
     const pushSubscription = await PushSubscription.findOneAndUpdate(
       { userId },
       { 
@@ -31,35 +31,34 @@ exports.subscribe = async (req, res) => {
         enabled: true
       },
       { 
-        upsert: true, // إنشاء جديد إذا لم يكن موجود
+        upsert: true,
         new: true 
       }
     );
 
     res.json({
       success: true,
-      message: 'تم تفعيل الإشعارات بنجاح! 🔔',
+      message: 'Benachrichtigungen erfolgreich aktiviert! 🔔',
       data: {
         enabled: pushSubscription.enabled
       }
     });
 
   } catch (error) {
-    console.error('❌ خطأ في حفظ الاشتراك:', error);
+    console.error('❌ Error saving subscription:', error);
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ أثناء حفظ الإشعارات'
+      message: 'Fehler beim Speichern der Benachrichtigungen'
     });
   }
 };
 
-// 2️⃣ تفعيل/تعطيل الإشعارات
+// 2️⃣ Enable/disable notifications
 exports.toggleNotifications = async (req, res) => {
   try {
     const { enabled } = req.body;
     const userId = req.user.id;
 
-    // البحث عن الاشتراك وتحديث حالته
     const pushSubscription = await PushSubscription.findOneAndUpdate(
       { userId },
       { enabled },
@@ -69,28 +68,28 @@ exports.toggleNotifications = async (req, res) => {
     if (!pushSubscription) {
       return res.status(404).json({
         success: false,
-        message: 'لم يتم العثور على اشتراك للإشعارات'
+        message: 'Kein Benachrichtigungs-Abonnement gefunden'
       });
     }
 
     res.json({
       success: true,
-      message: enabled ? 'تم تفعيل الإشعارات ✅' : 'تم تعطيل الإشعارات ⏸️',
+      message: enabled ? 'Benachrichtigungen aktiviert ✅' : 'Benachrichtigungen deaktiviert ⏸️',
       data: {
         enabled: pushSubscription.enabled
       }
     });
 
   } catch (error) {
-    console.error('❌ خطأ في تبديل حالة الإشعارات:', error);
+    console.error('❌ Error toggling notifications:', error);
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ أثناء تحديث الإشعارات'
+      message: 'Fehler beim Aktualisieren der Benachrichtigungen'
     });
   }
 };
 
-// 3️⃣ الحصول على حالة الإشعارات للمستخدم
+// 3️⃣ Get notification status for the user
 exports.getNotificationStatus = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -106,64 +105,59 @@ exports.getNotificationStatus = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ خطأ في جلب حالة الإشعارات:', error);
+    console.error('❌ Error fetching notification status:', error);
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ أثناء جلب حالة الإشعارات'
+      message: 'Fehler beim Abrufen des Benachrichtigungsstatus'
     });
   }
 };
 
-// 4️⃣ إرسال إشعار لمستخدم معين
+// 4️⃣ Send notification to a specific user
 exports.sendNotification = async (userId, title, body, data = {}) => {
   try {
-    // البحث عن اشتراك المستخدم
     const pushSubscription = await PushSubscription.findOne({ 
       userId,
-      enabled: true // فقط المستخدمين الذين فعّلوا الإشعارات
+      enabled: true
     });
 
     if (!pushSubscription) {
-      console.log(`ℹ️ المستخدم ${userId} لم يفعّل الإشعارات`);
+      console.log(`ℹ️ User ${userId} has not enabled notifications`);
       return false;
     }
 
-    // محتوى الإشعار
     const payload = JSON.stringify({
       title,
       body,
-      icon: '/icon-192x192.png', // أيقونة الإشعار
+      icon: '/icon-192x192.png',
       badge: '/badge-72x72.png',
       data: {
-        url: '/', // الصفحة التي سيفتحها عند النقر
+        url: '/',
         ...data
       }
     });
 
-    // إرسال الإشعار
     await webpush.sendNotification(pushSubscription.subscription, payload);
 
-    // تحديث تاريخ آخر إشعار
     await PushSubscription.findByIdAndUpdate(pushSubscription._id, {
       lastNotificationSent: new Date()
     });
 
-    console.log(`✅ تم إرسال إشعار للمستخدم ${userId}`);
+    console.log(`✅ Notification sent to user ${userId}`);
     return true;
 
   } catch (error) {
-    // إذا كان الاشتراك منتهي أو غير صالح
     if (error.statusCode === 404 || error.statusCode === 410) {
-      console.log(`⚠️ اشتراك منتهي للمستخدم ${userId}، جاري الحذف...`);
+      console.log(`⚠️ Expired subscription for user ${userId}, deleting...`);
       await PushSubscription.deleteOne({ userId });
     } else {
-      console.error('❌ خطأ في إرسال الإشعار:', error);
+      console.error('❌ Error sending notification:', error);
     }
     return false;
   }
 };
 
-// 5️⃣ إلغاء الاشتراك من الإشعارات
+// 5️⃣ Unsubscribe from notifications
 exports.unsubscribe = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -172,14 +166,14 @@ exports.unsubscribe = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'تم إلغاء الاشتراك من الإشعارات بنجاح'
+      message: 'Benachrichtigungen erfolgreich abgemeldet'
     });
 
   } catch (error) {
-    console.error('❌ خطأ في إلغاء الاشتراك:', error);
+    console.error('❌ Error unsubscribing:', error);
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ أثناء إلغاء الاشتراك'
+      message: 'Fehler beim Abmelden der Benachrichtigungen'
     });
   }
 };

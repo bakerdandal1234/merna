@@ -8,7 +8,6 @@ export default function AddSentenceForm({
   setNewArabic,
   addSentence,
 }) {
-  // A simple keydown handler to allow submitting with Enter key
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       addSentence();
@@ -17,11 +16,11 @@ export default function AddSentenceForm({
 
   return (
     <div className="card">
-      <h2 className="card-title">إضافة جملة جديدة</h2>
+      <h2 className="card-title">Neuen Satz hinzufügen</h2>
       <div className="input-group">
         <input
           type="text"
-          placeholder="الجملة الألمانية"
+          placeholder="Deutscher Satz"
           value={newGerman}
           onChange={(e) => setNewGerman(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -29,14 +28,14 @@ export default function AddSentenceForm({
         />
         <input
           type="text"
-          placeholder="الترجمة العربية"
+          placeholder="Arabische Übersetzung"
           value={newArabic}
           onChange={(e) => setNewArabic(e.target.value)}
           onKeyDown={handleKeyDown}
           className="input"
         />
         <button onClick={addSentence} className="button-primary">
-          <Plus size={20} /> حفظ الجملة
+          <Plus size={20} /> Satz speichern
         </button>
       </div>
     </div>

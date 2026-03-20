@@ -95,7 +95,7 @@ const getQualityLabel = (quality) => {
 };
 
 // ============================================
-// @desc    جلب جميع الجمل مع Pagination
+// @desc    Get all sentences with pagination
 // @route   GET /api/sentences
 // @access  Private
 // ============================================
@@ -104,18 +104,16 @@ exports.getSentences = asyncHandler(async (req, res, next) => {
   const filters = buildFilters(req.query);
   const sort = getSortCriteria(req.query.sort);
 
-  // Parallel execution for better performance
   const [sentences, total] = await Promise.all([
     Sentence.find(filters)
       .sort(sort)
       .limit(limit)
       .skip(skip)
-      .select('-reviewHistory') // Optimize by excluding large arrays
+      .select('-reviewHistory')
       .lean(),
     Sentence.countDocuments(filters)
   ]);
 
-  // Add stats and ownership info
   const sentencesWithStats = sentences.map(s => {
     const stats = calculateSentenceStats(s);
     const isOwner = s.userId && req.user._id && 
@@ -139,7 +137,7 @@ exports.getSentences = asyncHandler(async (req, res, next) => {
 });
 
 // ============================================
-// @desc    جلب جمل المستخدم فقط
+// @desc    Get current user's sentences only
 // @route   GET /api/sentences/my-sentences
 // @access  Private
 // ============================================
@@ -153,7 +151,7 @@ exports.getMySentences = asyncHandler(async (req, res, next) => {
       .sort(sort)
       .limit(limit)
       .skip(skip)
-      .select('-reviewHistory') // Optimize by excluding large arrays
+      .select('-reviewHistory')
       .lean(),
     Sentence.countDocuments(filters)
   ]);
@@ -180,17 +178,15 @@ exports.getMySentences = asyncHandler(async (req, res, next) => {
 });
 
 // ============================================
-// @desc    إضافة جملة جديدة
+// @desc    Add a new sentence
 // @route   POST /api/sentences
 // @access  Private
 // ============================================
 exports.createSentence = asyncHandler(async (req, res, next) => {
   const { german, arabic } = req.body;
 
-  // Normalize text for better duplicate detection
   const normalizedGerman = german.trim().toLowerCase();
 
-  // Check for duplicate (case-insensitive)
   const existingSentence = await Sentence.findOne({
     userId: req.user._id,
     german: { $regex: new RegExp(`^${normalizedGerman.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
@@ -215,20 +211,19 @@ exports.createSentence = asyncHandler(async (req, res, next) => {
 
   res.status(HTTP_STATUS.CREATED).json({
     success: true,
-    message: '✅ تم إضافة الجملة بنجاح',
+    message: '✅ Satz erfolgreich hinzugefügt',
     data: { ...newSentence.toObject(), stats }
   });
 });
 
 // ============================================
-// @desc    مراجعة الجملة بنظام SM-2
+// @desc    Review a sentence using SM-2
 // @route   POST /api/sentences/:id/review
 // @access  Private
 // ============================================
 exports.reviewSentence = asyncHandler(async (req, res, next) => {
   const { quality } = req.body;
 
-  // Find original sentence
   const originalSentence = await Sentence.findById(req.params.id);
 
   if (!originalSentence) {
@@ -236,20 +231,17 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
   }
 
   if (!originalSentence.userId) {
-    return next(new AppError('خطأ في بيانات الجملة - userId مفقود', HTTP_STATUS.INTERNAL_SERVER_ERROR));
+    return next(new AppError('Fehler in den Satzdaten – userId fehlt', HTTP_STATUS.INTERNAL_SERVER_ERROR));
   }
 
-  // Check ownership
   const isOwner = originalSentence.userId.toString() === req.user._id.toString();
 
   let sentence;
   let wasCreated = false;
 
   if (isOwner) {
-    // User owns this sentence - update directly
     sentence = originalSentence;
   } else {
-    // User doesn't own it - find or create their copy
     let userSentence = await Sentence.findOne({
       userId: req.user._id,
       german: originalSentence.german,
@@ -268,16 +260,13 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
     sentence = userSentence;
   }
 
-  // Store previous state before update
   const previousInterval = sentence.interval || 0;
   const previousEaseFactor = sentence.easeFactor || 2.5;
   const previousRepetitions = sentence.repetitions || 0;
   const previousLevel = sentence.reviewLevel || 'new';
 
-  // Apply SM-2 algorithm
   const newState = updateCardState(sentence, quality);
 
-  // Update sentence using instance method
   sentence.updateReviewState(newState, quality);
   await sentence.save();
 
@@ -290,22 +279,20 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
 
   const stats = calculateSentenceStats(sentence.toObject());
 
-  // Format intervals for display
   const previousFormatted = formatInterval(previousInterval);
   const newFormatted = formatInterval(newState.interval);
 
   res.json({
     success: true,
     message: wasCreated
-      ? '✅ تم إنشاء نسخة خاصة بك وتحديثها'
-      : '✅ تم تحديث البطاقة بنجاح',
+      ? '✅ Eigene Kopie erstellt und aktualisiert'
+      : '✅ Karte erfolgreich aktualisiert',
     data: {
       ...sentence.toObject(),
       stats,
       isOwner: isOwner || wasCreated
     },
     sm2Result: {
-      // Full SM-2 calculation results
       interval: newState.interval,
       intervalFormatted: newFormatted,
       nextReview: newState.nextReview,
@@ -316,7 +303,6 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
       quality: quality,
       qualityLabel: getQualityLabel(quality),
       
-      // Previous state for comparison
       previousState: {
         interval: previousInterval,
         intervalFormatted: previousFormatted,
@@ -328,15 +314,15 @@ exports.reviewSentence = asyncHandler(async (req, res, next) => {
     changes: {
       intervalChange: `${previousFormatted.value} ${previousFormatted.unit} → ${newFormatted.value} ${newFormatted.unit}`,
       levelChange: `${previousLevel} → ${newState.reviewLevel}`,
-      nextReviewDate: newState.nextReview.toLocaleDateString('ar-EG'),
-      nextReviewTime: newState.nextReview.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+      nextReviewDate: newState.nextReview.toLocaleDateString('de-DE'),
+      nextReviewTime: newState.nextReview.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
     },
     wasCreated
   });
 });
 
 // ============================================
-// @desc    الجمل المستحقة للمراجعة
+// @desc    Get sentences due for review
 // @route   GET /api/sentences/due
 // @access  Private
 // ============================================
@@ -347,7 +333,7 @@ exports.getDueSentences = asyncHandler(async (req, res) => {
     userId: req.user._id,
     nextReview: { $lte: new Date() }
   })
-    .sort({ nextReview: 1, easeFactor: 1 }) // Prioritize harder cards
+    .sort({ nextReview: 1, easeFactor: 1 })
     .limit(limit)
     .select('-reviewHistory')
     .lean();
@@ -362,19 +348,18 @@ exports.getDueSentences = asyncHandler(async (req, res) => {
     success: true,
     count: sentencesWithStats.length,
     data: sentencesWithStats,
-    message: sentencesWithStats.length === 0 ? 'لا توجد جمل للمراجعة الآن' : undefined
+    message: sentencesWithStats.length === 0 ? 'Keine Sätze zur Wiederholung.' : undefined
   });
 });
 
 // ============================================
-// @desc    تعديل الجملة
+// @desc    Update a sentence
 // @route   PUT /api/sentences/:id
 // @access  Private (Owner only)
 // ============================================
 exports.updateSentence = asyncHandler(async (req, res) => {
   const { german, arabic, favorite } = req.body;
 
-  // req.sentence is set by checkOwnership middleware
   const sentence = req.sentence;
 
   if (german !== undefined) sentence.german = german;
@@ -387,13 +372,13 @@ exports.updateSentence = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: '✅ تم تعديل الجملة بنجاح',
+    message: '✅ Satz erfolgreich bearbeitet',
     data: { ...sentence.toObject(), stats }
   });
 });
 
 // ============================================
-// @desc    حذف الجملة
+// @desc    Delete a sentence
 // @route   DELETE /api/sentences/:id
 // @access  Private (Owner only)
 // ============================================
@@ -409,12 +394,12 @@ exports.deleteSentence = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: '🗑️ تم حذف الجملة بنجاح'
+    message: '🗑️ Satz erfolgreich gelöscht'
   });
 });
 
 // ============================================
-// @desc    إعادة تعيين البطاقات
+// @desc    Reset all cards
 // @route   POST /api/sentences/reset
 // @access  Private
 // ============================================
@@ -439,19 +424,18 @@ exports.resetSentences = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: `✅ تم إعادة تعيين ${result.modifiedCount} جملة بنجاح`
+    message: `✅ ${result.modifiedCount} Sätze erfolgreich zurückgesetzt`
   });
 });
 
 // ============================================
-// @desc    الإحصائيات
+// @desc    Get statistics
 // @route   GET /api/stats
 // @access  Private
 // ============================================
 exports.getStats = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
-  // Run all queries in parallel for better performance
   const [total, levelCounts, dueCount, allSentences] = await Promise.all([
     Sentence.countDocuments({ userId }),
     Sentence.aggregate([
@@ -486,8 +470,7 @@ exports.getStats = asyncHandler(async (req, res) => {
     }
   });
 
-  // حساب نسبة التعلم النشط: جميع الجمل التي خرجت من مرحلة "new"
-  // أي جملة راجعتها مرة واحدة على الأقل بنجاح (interval >= 1)
+  // Active learning: all sentences that left the "new" stage
   const activeLearning = (stats.learning || 0) + (stats.hard || 0) + 
                          (stats.good || 0) + (stats.excellent || 0) + 
                          (stats.mastered || 0);
@@ -496,7 +479,7 @@ exports.getStats = asyncHandler(async (req, res) => {
     ? ((activeLearning / total) * 100).toFixed(1)
     : 0;
   
-  // احتفظ بـ masteryPercentage للتوافق مع Frontend القديم
+  // Keep masteryPercentage for frontend compatibility
   stats.masteryPercentage = stats.progressPercentage;
 
   stats.due = dueCount;

@@ -30,7 +30,7 @@ const errorHandler = (err, req, res, next) => {
     const errors = Object.values(err.errors).map(e => e.message);
     return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
-      message: 'خطأ في التحقق من البيانات',
+      message: 'Fehler bei der Datenvalidierung',
       errors
     });
   }
@@ -39,7 +39,7 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'CastError') {
     return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
-      message: 'معرّف غير صالح'
+      message: 'Ungültige ID'
     });
   }
 
@@ -48,7 +48,7 @@ const errorHandler = (err, req, res, next) => {
     const field = Object.keys(err.keyPattern)[0];
     return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
-      message: `${field === 'email' ? 'الإيميل' : 'البيانات'} مكرر`,
+      message: `${field === 'email' ? 'E-Mail' : 'Daten'} bereits vorhanden`,
       field
     });
   }
@@ -57,14 +57,14 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'JsonWebTokenError') {
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success: false,
-      message: 'Token غير صالح'
+      message: 'Ungültiger Token'
     });
   }
 
   if (err.name === 'TokenExpiredError') {
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success: false,
-      message: 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى',
+      message: 'Sitzung abgelaufen. Bitte melden Sie sich erneut an.',
       expired: true
     });
   }
@@ -72,7 +72,7 @@ const errorHandler = (err, req, res, next) => {
   // Default Error Response
   res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
     success: false,
-    message: error.message || 'حدث خطأ في الخادم',
+    message: error.message || 'Ein Serverfehler ist aufgetreten.',
     ...(process.env.NODE_ENV === 'development' && {
       stack: err.stack,
       error: err
@@ -84,7 +84,7 @@ const errorHandler = (err, req, res, next) => {
 const notFoundHandler = (req, res) => {
   res.status(HTTP_STATUS.NOT_FOUND).json({
     success: false,
-    message: 'المسار غير موجود',
+    message: 'Pfad nicht gefunden',
     path: req.originalUrl
   });
 };

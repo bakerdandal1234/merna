@@ -18,10 +18,8 @@ const VerifyEmail = () => {
 
       if (result.success) {
         setMessage({ type: 'success', text: result.message });
-        // التوجيه لصفحة تسجيل الدخول بعد 3 ثواني
-        setTimeout(() => {
-          navigate('/login');
-        }, 3000);
+        // Redirect to login after 3 seconds
+        setTimeout(() => navigate('/login'), 3000);
       } else {
         setMessage({ type: 'error', text: result.message });
       }
@@ -36,8 +34,8 @@ const VerifyEmail = () => {
         {loading ? (
           <>
             <div style={styles.spinner}></div>
-            <h2 style={styles.title}>جاري التحقق من حسابك...</h2>
-            <p style={styles.description}>يرجى الانتظار</p>
+            <h2 style={styles.title}>E-Mail wird verifiziert</h2>
+            <p style={styles.description}>Bitte warten...</p>
           </>
         ) : (
           <>
@@ -45,26 +43,20 @@ const VerifyEmail = () => {
               {message.type === 'success' ? '✅' : '❌'}
             </div>
             <h2 style={styles.title}>
-              {message.type === 'success' ? 'تم التفعيل!' : 'فشل التفعيل'}
+              {message.type === 'success' ? 'E-Mail bestätigt!' : 'Bestätigung fehlgeschlagen'}
             </h2>
-            <div
-              style={
-                message.type === 'success'
-                  ? styles.successAlert
-                  : styles.errorAlert
-              }
-            >
+            <div style={message.type === 'success' ? styles.successAlert : styles.errorAlert}>
               {message.text}
             </div>
 
             {message.type === 'success' ? (
               <p style={styles.description}>
-                سيتم توجيهك لصفحة تسجيل الدخول خلال 3 ثواني...
+                Sie werden in 3 Sekunden zur Anmeldeseite weitergeleitet...
               </p>
             ) : (
               <div style={styles.footer}>
                 <Link to="/login" style={styles.link}>
-                  العودة لتسجيل الدخول
+                  Zurück zur Anmeldung
                 </Link>
               </div>
             )}
@@ -102,20 +94,9 @@ const styles = {
     animation: 'spin 1s linear infinite',
     margin: '0 auto 20px'
   },
-  icon: {
-    fontSize: '60px',
-    marginBottom: '20px'
-  },
-  title: {
-    marginBottom: '20px',
-    color: '#333',
-    fontSize: '28px'
-  },
-  description: {
-    color: '#666',
-    marginTop: '20px',
-    lineHeight: '1.6'
-  },
+  icon: { fontSize: '60px', marginBottom: '20px' },
+  title: { marginBottom: '20px', color: '#333', fontSize: '28px' },
+  description: { color: '#666', marginTop: '20px', lineHeight: '1.6' },
   successAlert: {
     background: '#d4edda',
     color: '#155724',
@@ -132,18 +113,10 @@ const styles = {
     marginBottom: '20px',
     border: '1px solid #f5c6cb'
   },
-  footer: {
-    marginTop: '20px'
-  },
-  link: {
-    color: '#667eea',
-    textDecoration: 'none',
-    fontWeight: '600',
-    fontSize: '16px'
-  }
+  footer: { marginTop: '20px' },
+  link: { color: '#667eea', textDecoration: 'none', fontWeight: '600', fontSize: '16px' }
 };
 
-// Add animation
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   @keyframes spin {

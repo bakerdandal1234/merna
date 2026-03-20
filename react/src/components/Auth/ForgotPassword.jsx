@@ -13,7 +13,7 @@ const ForgotPassword = () => {
     e.preventDefault();
 
     if (!email) {
-      setMessage({ type: 'error', text: 'يرجى إدخال البريد الإلكتروني' });
+      setMessage({ type: 'error', text: 'Bitte geben Sie Ihre E-Mail-Adresse ein' });
       return;
     }
 
@@ -36,9 +36,9 @@ const ForgotPassword = () => {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.icon}>🔑</div>
-        <h2 style={styles.title}>نسيت كلمة المرور؟</h2>
+        <h2 style={styles.title}>Passwort vergessen?</h2>
         <p style={styles.description}>
-          أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور
+          Geben Sie Ihre E-Mail-Adresse ein, und wir senden Ihnen einen Link zum Zurücksetzen Ihres Passworts
         </p>
 
         {message.text && (
@@ -53,7 +53,7 @@ const ForgotPassword = () => {
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>البريد الإلكتروني</label>
+            <label style={styles.label}>E-Mail</label>
             <input
               type="email"
               value={email}
@@ -72,13 +72,13 @@ const ForgotPassword = () => {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? 'جاري الإرسال...' : 'إرسال رابط إعادة التعيين'}
+            {loading ? 'Sending...' : 'Link zum Zurücksetzen des Passworts senden'}
           </button>
         </form>
 
         <div style={styles.footer}>
           <Link to="/login" style={styles.link}>
-            ← العودة لتسجيل الدخول
+            Zurück zum Einloggen
           </Link>
         </div>
       </div>

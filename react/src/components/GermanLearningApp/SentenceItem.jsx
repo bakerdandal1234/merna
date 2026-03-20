@@ -15,6 +15,7 @@ export default function SentenceItem({
   const isEditing = editingId === sentence._id;
   const canEdit = sentence.isOwner || false;
   const canDelete = sentence.isOwner || false;
+
   return (
     <div className="sentence-card">
       {isEditing ? (
@@ -33,10 +34,10 @@ export default function SentenceItem({
           />
           <div className="edit-buttons">
             <button onClick={saveEdit} className="button-save">
-              <Check size={18} /> حفظ
+              <Check size={18} /> Speichern
             </button>
             <button onClick={() => setEditingId(null)} className="button-cancel">
-              <X size={18} /> إلغاء
+              <X size={18} /> Abbrechen
             </button>
           </div>
         </div>

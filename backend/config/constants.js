@@ -14,7 +14,7 @@ module.exports = {
   PASSWORD: {
     MIN_LENGTH: 8,
     REGEX: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]/,
-    ERROR_MESSAGE: 'كلمة المرور يجب أن تحتوي على: حرف كبير، حرف صغير، رقم، ورمز خاص'
+    ERROR_MESSAGE: 'Das Passwort muss mindestens 8 Zeichen lang sein und eine Kombination aus Kleinbuchstaben, Großbuchstaben, Zahlen und Sonderzeichen enthalten'
   },
 
   // Email Configuration
@@ -76,18 +76,18 @@ module.exports = {
 
   // Error Messages
   ERRORS: {
-    INVALID_CREDENTIALS: 'بيانات الدخول غير صحيحة',
-    ACCOUNT_NOT_VERIFIED: 'يرجى تفعيل حسابك أولاً. تحقق من إيميلك',
-    UNAUTHORIZED: 'غير مصرح. يرجى تسجيل الدخول',
-    TOKEN_EXPIRED: 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى',
-    INVALID_TOKEN: 'Token غير صالح',
-    EMAIL_EXISTS: 'هذا الإيميل مسجل بالفعل',
-    USER_NOT_FOUND: 'المستخدم غير موجود',
-    FORBIDDEN: 'لا تملك الصلاحيات للوصول لهذا المورد',
-    NOT_OWNER: '🚫 غير مسموح! يمكنك فقط تعديل/حذف الجمل التي أضفتها أنت',
-    SENTENCE_EXISTS: 'الجملة موجودة مسبقًا',
-    SENTENCE_NOT_FOUND: 'الجملة غير موجودة',
-    INVALID_ID: 'معرّف غير صالح',
-    SERVER_ERROR: 'حدث خطأ في الخادم'
+    INVALID_CREDENTIALS: 'Ungültige Anmeldedaten',
+    ACCOUNT_NOT_VERIFIED: 'Bitte verifizieren Sie Ihr Konto zuerst. Überprüfen Sie Ihre E-Mail',
+    UNAUTHORIZED: 'Nicht autorisiert. Bitte melden Sie sich an',
+    TOKEN_EXPIRED: 'Die Sitzung ist abgelaufen. Bitte melden Sie sich erneut an',
+    INVALID_TOKEN: 'Ungültiger Token',
+    EMAIL_EXISTS: 'Diese E-Mail-Adresse ist bereits registriert',
+    USER_NOT_FOUND: 'Der Benutzer wurde nicht gefunden',
+    FORBIDDEN: 'Sie haben keine Berechtigung, auf diese Ressource zuzugreifen',
+    NOT_OWNER: '🚫 Nicht erlaubt! Sie können nur Sätze bearbeiten/löschen, die Sie selbst hinzugefügt haben',
+    SENTENCE_EXISTS: 'Der Satz existiert bereits',
+    SENTENCE_NOT_FOUND: 'Der Satz wurde nicht gefunden',
+    INVALID_ID: 'Ungültige ID',
+    SERVER_ERROR: 'Ein Fehler ist auf dem Server aufgetreten. '
   }
 };

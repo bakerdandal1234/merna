@@ -25,13 +25,13 @@ const Login = () => {
     const newErrors = {};
 
     if (!formData.email) {
-      newErrors.email = 'الإيميل مطلوب';
+      newErrors.email = 'E-Mail ist erforderlich';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'الإيميل غير صالح';
+      newErrors.email = 'Ungültige E-Mail-Adresse';
     }
 
     if (!formData.password) {
-      newErrors.password = 'كلمة المرور مطلوبة';
+      newErrors.password = 'Passwort ist erforderlich';
     }
 
     setErrors(newErrors);
@@ -40,15 +40,10 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateForm()) return;
-
     setLoading(true);
-
     const result = await login(formData);
-
     setLoading(false);
-
     if (result.success) {
       navigate('/');
     } else {
@@ -59,26 +54,26 @@ const Login = () => {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>🔐 تسجيل الدخول</h2>
+        <h2 style={styles.title}>🔐 Anmelden</h2>
 
         {errors.submit && <div style={styles.errorAlert}>{errors.submit}</div>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>البريد الإلكتروني</label>
+            <label style={styles.label}>E-Mail</label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
               style={styles.input}
-              placeholder="example@email.com"
+              placeholder="beispiel@email.com"
             />
             {errors.email && <span style={styles.error}>{errors.email}</span>}
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>كلمة المرور</label>
+            <label style={styles.label}>Passwort</label>
             <input
               type="password"
               name="password"
@@ -94,7 +89,7 @@ const Login = () => {
 
           <div style={styles.forgotPassword}>
             <Link to="/forgot-password" style={styles.link}>
-              نسيت كلمة المرور؟
+              Passwort vergessen?
             </Link>
           </div>
 
@@ -107,14 +102,14 @@ const Login = () => {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? 'جاري تسجيل الدخول...' : 'دخول'}
+            {loading ? 'Wird geladen...' : 'Anmelden'}
           </button>
         </form>
 
         <p style={styles.footer}>
-          ليس لديك حساب؟{' '}
+          Noch kein Konto?{' '}
           <Link to="/register" style={styles.link}>
-            إنشاء حساب
+            Konto erstellen
           </Link>
         </p>
       </div>
@@ -145,21 +140,9 @@ const styles = {
     color: '#333',
     fontSize: '28px'
   },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px'
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px'
-  },
-  label: {
-    fontWeight: '600',
-    color: '#555',
-    fontSize: '14px'
-  },
+  form: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  label: { fontWeight: '600', color: '#555', fontSize: '14px' },
   input: {
     padding: '12px 15px',
     border: '2px solid #e0e0e0',
@@ -179,10 +162,7 @@ const styles = {
     marginTop: '10px',
     transition: 'transform 0.2s'
   },
-  error: {
-    color: '#e74c3c',
-    fontSize: '13px'
-  },
+  error: { color: '#e74c3c', fontSize: '13px' },
   errorAlert: {
     background: '#f8d7da',
     color: '#721c24',
@@ -191,20 +171,9 @@ const styles = {
     marginBottom: '20px',
     border: '1px solid #f5c6cb'
   },
-  forgotPassword: {
-    textAlign: 'right',
-    marginTop: '-10px'
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: '20px',
-    color: '#666'
-  },
-  link: {
-    color: '#667eea',
-    textDecoration: 'none',
-    fontWeight: '600'
-  }
+  forgotPassword: { textAlign: 'right', marginTop: '-10px' },
+  footer: { textAlign: 'center', marginTop: '20px', color: '#666' },
+  link: { color: '#667eea', textDecoration: 'none', fontWeight: '600' }
 };
 
 export default Login;

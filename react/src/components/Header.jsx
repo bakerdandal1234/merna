@@ -9,7 +9,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    if (window.confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+    if (window.confirm('Möchten Sie sich wirklich abmelden?')) {
       await logout();
       navigate('/login');
     }
@@ -21,7 +21,7 @@ const Header = () => {
         {/* Logo & Title */}
         <div style={styles.leftSection}>
           <h1 style={styles.logo}>🇩🇪 Baker</h1>
-          <span style={styles.subtitle}>تعلم الألمانية</span>
+          <span style={styles.subtitle}>Deutsch lernen</span>
         </div>
 
         {/* Desktop View */}
@@ -36,7 +36,7 @@ const Header = () => {
           
           <button onClick={handleLogout} style={styles.logoutButton}>
             <LogOut size={18} />
-            <span>تسجيل الخروج</span>
+            <span>Abmelden</span>
           </button>
         </div>
 
@@ -62,7 +62,7 @@ const Header = () => {
           
           <button onClick={handleLogout} style={styles.mobileLogoutButton}>
             <LogOut size={18} />
-            <span>تسجيل الخروج</span>
+            <span>Abmelden</span>
           </button>
         </div>
       )}
@@ -89,166 +89,55 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  leftSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    flexShrink: 0
-  },
-  logo: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    margin: 0,
-    color: '#667eea'
-  },
-  subtitle: {
-    color: '#666',
-    fontSize: '0.85rem',
-    display: 'none'
-  },
-  
-  // Desktop Menu
-  desktopMenu: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1.5rem'
-  },
+  leftSection: { display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 },
+  logo: { fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: '#667eea' },
+  subtitle: { color: '#666', fontSize: '0.85rem', display: 'none' },
+  desktopMenu: { display: 'flex', alignItems: 'center', gap: '1.5rem' },
   userInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-    padding: '0.5rem 1rem',
-    background: '#f8f9ff',
-    borderRadius: '8px'
+    display: 'flex', alignItems: 'center', gap: '0.75rem',
+    padding: '0.5rem 1rem', background: '#f8f9ff', borderRadius: '8px'
   },
-  userDetails: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start'
-  },
-  userName: {
-    fontSize: '0.9rem',
-    fontWeight: '600',
-    color: '#333'
-  },
-  userEmail: {
-    fontSize: '0.75rem',
-    color: '#666'
-  },
+  userDetails: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
+  userName: { fontSize: '0.9rem', fontWeight: '600', color: '#333' },
+  userEmail: { fontSize: '0.75rem', color: '#666' },
   logoutButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
+    display: 'flex', alignItems: 'center', gap: '0.5rem',
     padding: '0.6rem 1.2rem',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '0.9rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-    whiteSpace: 'nowrap'
+    color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem',
+    fontWeight: '600', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s',
+    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)', whiteSpace: 'nowrap'
   },
-
-  // Mobile Menu Button
-  mobileMenuButton: {
-    display: 'none',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '0.5rem'
-  },
-
-  // Mobile Menu
+  mobileMenuButton: { display: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' },
   mobileMenu: {
-    display: 'none',
-    flexDirection: 'column',
-    gap: '1rem',
-    padding: '1rem 1.5rem',
-    borderTop: '1px solid #f0f0f0',
-    background: 'white'
+    display: 'none', flexDirection: 'column', gap: '1rem',
+    padding: '1rem 1.5rem', borderTop: '1px solid #f0f0f0', background: 'white'
   },
   mobileUserInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    padding: '1rem',
-    background: '#f8f9ff',
-    borderRadius: '8px'
+    display: 'flex', alignItems: 'center', gap: '1rem',
+    padding: '1rem', background: '#f8f9ff', borderRadius: '8px'
   },
-  mobileUserDetails: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  mobileUserName: {
-    fontSize: '1rem',
-    fontWeight: '600',
-    color: '#333'
-  },
-  mobileUserEmail: {
-    fontSize: '0.85rem',
-    color: '#666'
-  },
+  mobileUserDetails: { display: 'flex', flexDirection: 'column' },
+  mobileUserName: { fontSize: '1rem', fontWeight: '600', color: '#333' },
+  mobileUserEmail: { fontSize: '0.85rem', color: '#666' },
   mobileLogoutButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.5rem',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
     padding: '0.75rem 1.5rem',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+    color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem',
+    fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
   }
 };
 
-// Add responsive styles and hover effects
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
-  /* Hover Effects */
-  button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
-  }
-  
-  button:active {
-    transform: translateY(0);
-  }
-
-  /* Responsive Styles */
+  button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important; }
+  button:active { transform: translateY(0); }
   @media (max-width: 650px) {
-    /* Hide desktop menu */
-    ${Object.entries(styles.desktopMenu).map(([key, value]) => 
-      `[style*="desktopMenu"] { display: none !important; }`
-    ).join('\n')}
-    
-    /* Show mobile menu button */
-    ${Object.entries(styles.mobileMenuButton).map(([key, value]) => 
-      `[style*="mobileMenuButton"] { display: block !important; }`
-    ).join('\n')}
-    
-    /* Show subtitle on desktop only */
-    ${Object.entries(styles.subtitle).map(([key, value]) => 
-      `[style*="subtitle"] { display: inline !important; }`
-    ).join('\n')}
-    
-    /* Smaller logo on mobile */
-    h1 {
-      font-size: 1.25rem !important;
-    }
+    h1 { font-size: 1.25rem !important; }
   }
-
   @media (min-width: 651px) {
-    /* Show subtitle on larger screens */
-    [style*="subtitle"] {
-      display: inline !important;
-    }
+    [style*="subtitle"] { display: inline !important; }
   }
 `;
 document.head.appendChild(styleSheet);

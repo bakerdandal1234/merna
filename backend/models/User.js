@@ -8,27 +8,27 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'الاسم مطلوب'],
+      required: [true, 'Der Name ist erforderlich'],
       trim: true,
-      minlength: [2, 'الاسم يجب أن يكون حرفين على الأقل'],
-      maxlength: [50, 'الاسم لا يمكن أن يتجاوز 50 حرفاً']
+      minlength: [2, 'Der Name muss mindestens 2 Zeichen lang sein'],
+      maxlength: [50, 'Der Name darf 50 Zeichen nicht überschreiten']
     },
     email: {
       type: String,
-      required: [true, 'الإيميل مطلوب'],
+      required: [true, 'E-Mail ist erforderlich'],
       unique: true,
       lowercase: true,
       trim: true,
       match: [
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        'يرجى إدخال إيميل صالح'
+        'Bitte geben Sie eine gültige E-Mail-Adresse ein'
       ],
       index: true
     },
     password: {
       type: String,
-      required: [true, 'كلمة المرور مطلوبة'],
-      minlength: [PASSWORD.MIN_LENGTH, `كلمة المرور يجب أن تكون ${PASSWORD.MIN_LENGTH} أحرف على الأقل`],
+      required: [true, 'Das Passwort ist erforderlich'],
+      minlength: [PASSWORD.MIN_LENGTH, `Das Passwort muss mindestens ${PASSWORD.MIN_LENGTH} Zeichen lang sein`],
       select: false
     },
     isVerified: {
@@ -45,11 +45,11 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user'
     },
-    // ========== حقل جديد للإشعارات ==========
+    // ========== Neues Feld für Benachrichtigungen ==========
     isActive: {
       type: Boolean,
-      default: true, // المستخدمون نشطون افتراضياً
-      index: true // فهرس للبحث السريع
+      default: true, // Benutzer sind standardmäßig aktiv
+      index: true // Index für schnelle Suche
     },
     // =====================================
     lastLogin: {
@@ -104,7 +104,7 @@ userSchema.pre('save', async function () {
     const salt = await bcrypt.genSalt(config.security.bcryptRounds);
     this.password = await bcrypt.hash(this.password, salt);
   } catch (error) {
-    // إذا حدث خطأ، ارميه ليتم التعامل معه في الكود الذي يحفظ المستخدم
+    // Wenn ein Fehler auftritt, werfen Sie ihn, damit er im Code, der den Benutzer speichert, behandelt werden kann
     throw error;
   }
 });
@@ -203,7 +203,7 @@ userSchema.statics.findByCredentials = async function (email, password) {
   const user = await this.findOne({ email }).select('+password');
   
   if (!user) {
-    return { success: false, message: 'بيانات الدخول غير صحيحة' };
+    return { success: false, message: 'Ungültige Anmeldedaten' };
   }
 
   // Check if account is locked
@@ -211,14 +211,14 @@ userSchema.statics.findByCredentials = async function (email, password) {
     const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
     return { 
       success: false, 
-      message: `الحساب مقفل. حاول مرة أخرى بعد ${remainingTime} دقيقة`,
+      message: `Konto gesperrt. Versuchen Sie es in ${remainingTime} Minuten erneut`,
       locked: true 
     };
   }
 
   // Check if verified
   if (!user.isVerified) {
-    return { success: false, message: 'يرجى تفعيل حسابك أولاً' };
+    return { success: false, message: 'Bitte aktivieren Sie zuerst Ihr Konto' };
   }
 
   // Check password
@@ -226,7 +226,7 @@ userSchema.statics.findByCredentials = async function (email, password) {
   
   if (!isMatch) {
     await user.incrementLoginAttempts();
-    return { success: false, message: 'بيانات الدخول غير صحيحة' };
+    return { success: false, message: 'Ungültige Anmeldedaten' };
   }
 
   return { success: true, user };

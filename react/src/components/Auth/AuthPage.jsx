@@ -35,7 +35,7 @@ export default function AuthPage() {
       if (isLogin) {
         // تسجيل الدخول
         if (!formData.email || !formData.password) {
-          setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+          setError('Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein');
           setLoading(false);
           return;
         }
@@ -44,13 +44,13 @@ export default function AuthPage() {
       } else {
         // التسجيل
         if (!formData.name || !formData.email || !formData.password) {
-          setError('يرجى إدخال جميع البيانات المطلوبة');
+          setError('Bitte füllen Sie alle erforderlichen Felder aus');
           setLoading(false);
           return;
         }
         
-        if (formData.password.length < 6) {
-          setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+        if (formData.password.length < 8) {
+          setError('Das Passwort muss mindestens 8 Zeichen lang sein');
           setLoading(false);
           return;
         }
@@ -64,7 +64,7 @@ export default function AuthPage() {
       }
       
     } catch (err) {
-      setError('حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى');
+      setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.');
     } finally {
       setLoading(false);
     }
@@ -92,12 +92,12 @@ export default function AuthPage() {
               🎓
             </div>
             <h1 className="auth-title">
-              {isLogin ? 'مرحباً بعودتك!' : 'انضم إلينا!'}
+              {isLogin ? 'Willkommen zurück!' : 'Treten Sie uns bei!'}
             </h1>
             <p className="auth-subtitle">
               {isLogin 
-                ? 'سجل دخولك لمتابعة تعلم الألمانية' 
-                : 'أنشئ حساباً جديداً وابدأ رحلة التعلم'}
+                ? 'Melden Sie sich an, um Ihren Deutschlernfortschritt fortzusetzen' 
+                : 'Erstellen Sie ein neues Konto und beginnen Sie Ihre Reise zum Deutschlernen'}
             </p>
           </div>
 
@@ -114,7 +114,7 @@ export default function AuthPage() {
                   type="text"
                   id="name"
                   name="name"
-                  placeholder="أدخل اسمك الكامل"
+                  placeholder="Ihr Name"
                   value={formData.name}
                   onChange={handleChange}
                   required={!isLogin}
@@ -127,7 +127,7 @@ export default function AuthPage() {
             <div className="form-group">
               <label htmlFor="email">
                 <Mail size={18} />
-                البريد الإلكتروني
+                E-Mail
               </label>
               <input
                 type="email"
@@ -145,14 +145,14 @@ export default function AuthPage() {
             <div className="form-group">
               <label htmlFor="password">
                 <Lock size={18} />
-                كلمة المرور
+                Passwort
               </label>
               <div className="password-wrapper">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
-                  placeholder={isLogin ? '••••••••' : 'على الأقل 6 أحرف'}
+                  placeholder={isLogin ? '••••••••' : 'Mindestens 8 Zeichen'}
                   value={formData.password}
                   onChange={handleChange}
                   required
@@ -185,11 +185,11 @@ export default function AuthPage() {
               disabled={loading}
             >
               {loading ? (
-                <span className="loading-spinner">⏳ جاري التحميل...</span>
+                <span className="loading-spinner">⏳ Jeder Ladevorgang</span>
               ) : (
                 <>
                   {isLogin ? <LogIn size={20} /> : <UserPlus size={20} />}
-                  {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب'}
+                  {isLogin ? 'Anmelden' : 'Konto erstellen'}
                 </>
               )}
             </button>
@@ -198,7 +198,7 @@ export default function AuthPage() {
           {/* التبديل بين تسجيل الدخول والتسجيل */}
           <div className="auth-footer">
             <p>
-              {isLogin ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}
+              {isLogin ? ' nicht haben Sie ein Konto?' : 'Sie haben bereits ein Konto?'}
             </p>
             <button 
               type="button" 
@@ -206,7 +206,7 @@ export default function AuthPage() {
               onClick={toggleMode}
               disabled={loading}
             >
-              {isLogin ? 'إنشاء حساب جديد' : 'تسجيل الدخول'}
+              {isLogin ? 'Neues Konto erstellen' : 'Anmelden'}
             </button>
           </div>
         </div>
@@ -215,18 +215,18 @@ export default function AuthPage() {
         <div className="auth-info">
           <div className="info-card">
             <span className="info-icon">📚</span>
-            <h3>تعلم ذكي</h3>
-            <p>نظام SM-2 للمراجعة المتباعدة</p>
+            <h3>Learn Smart</h3>
+            <p>SM-2 System for Spaced Repetition</p>
           </div>
           <div className="info-card">
             <span className="info-icon">📊</span>
-            <h3>تتبع التقدم</h3>
-            <p>إحصائيات دقيقة لأدائك</p>
+            <h3>Track Progress</h3>
+            <p>Accurate Statistics for Your Performance</p>
           </div>
           <div className="info-card">
             <span className="info-icon">🎯</span>
-            <h3>أهداف مخصصة</h3>
-            <p>حدد هدفك اليومي</p>
+            <h3>Custom Goals</h3>
+            <p>Set Your Daily Learning Objectives</p>
           </div>
         </div>
       </div>

@@ -2,14 +2,14 @@ const rateLimit = require('express-rate-limit');
 const { RATE_LIMIT } = require('../config/constants');
 
 // ============================================
-// Rate Limiter للتسجيل والدخول
+// Rate Limiter: Login & Registration
 // ============================================
 const authLimiter = rateLimit({
   windowMs: RATE_LIMIT.AUTH_WINDOW_MS,
   max: RATE_LIMIT.AUTH_MAX_REQUESTS,
   message: {
     success: false,
-    message: 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة بعد 15 دقيقة'
+    message: 'Zu viele Versuche. Bitte versuchen Sie es in 15 Minuten erneut.'
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -18,28 +18,28 @@ const authLimiter = rateLimit({
 });
 
 // ============================================
-// Rate Limiter لإعادة تعيين كلمة المرور
+// Rate Limiter: Password Reset
 // ============================================
 const resetPasswordLimiter = rateLimit({
   windowMs: RATE_LIMIT.RESET_PASSWORD_WINDOW_MS,
   max: RATE_LIMIT.RESET_PASSWORD_MAX_REQUESTS,
   message: {
     success: false,
-    message: 'تم تجاوز عدد المحاولات. يرجى المحاولة بعد ساعة'
+    message: 'Zu viele Versuche. Bitte versuchen Sie es in einer Stunde erneut.'
   },
   standardHeaders: true,
   legacyHeaders: false
 });
 
 // ============================================
-// Rate Limiter عام للـ API
+// Rate Limiter: General API
 // ============================================
 const generalLimiter = rateLimit({
   windowMs: RATE_LIMIT.GENERAL_WINDOW_MS,
   max: RATE_LIMIT.GENERAL_MAX_REQUESTS,
   message: {
     success: false,
-    message: 'تم تجاوز الحد المسموح من الطلبات'
+    message: 'Anfragelimit überschritten. Bitte versuchen Sie es später erneut.'
   },
   standardHeaders: true,
   legacyHeaders: false
